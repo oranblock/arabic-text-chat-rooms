@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>تطبيق غرف الدردشة الجماعية والكتابية</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body {
+      font-family: 'Cairo', sans-serif;
+      background: #0f172a;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .royal-blue {
+      background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%);
+    }
+    .gold-glow {
+      color: #f59e0b;
+      text-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+    }
+    .silver-badge {
+      color: #94a3b8;
+    }
+    .diamond-badge {
+      color: #06b6d4;
+    }
+    .avatar-rounded {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+    }
+    .bubble-card {
+      border-radius: 12px;
+    }
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="flex justify-center items-center min-h-screen p-0 sm:p-4 text-slate-800">
+
+  <!-- Mobile Frame Container -->
+  <div class="relative w-full sm:max-w-md h-[100dvh] sm:h-[844px] bg-slate-100 sm:rounded-[40px] shadow-2xl flex flex-col overflow-hidden border border-slate-700/50">
+
+    <!-- 1. ROYAL BLUE TOP BAR (5 Actions) -->
+    <header class="royal-blue text-white px-3 py-2.5 flex items-center justify-between shadow-md z-30 select-none">
+      <div class="flex items-center gap-2">
+        <button id="btnDrawer" class="p-1.5 hover:bg-white/10 rounded-lg active:scale-95 transition" title="قائمة المتصلين">
+          <i data-lucide="users" class="w-5 h-5 text-blue-100"></i>
+        </button>
+        <div>
+          <h1 class="text-sm font-bold leading-tight flex items-center gap-1">
+            غرفة ديوانية العرب
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          </h1>
+          <p class="text-[10px] text-blue-200">142 متصل الآن</p>
+        </div>
+      </div>
+
+      <!-- The 5 Quick Action Icons -->
+      <div class="flex items-center gap-1">
+        <!-- 1. Notifications -->
+        <button class="relative p-1.5 hover:bg-white/15 rounded-lg active:scale-90 transition" title="التنبيهات">
+          <i data-lucide="bell" class="w-4 h-4 text-blue-100"></i>
+          <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+        </button>
+        <!-- 2. Room Switcher -->
+        <button onclick="switchRoomModal()" class="p-1.5 hover:bg-white/15 rounded-lg active:scale-90 transition" title="الغرف">
+          <i data-lucide="door-open" class="w-4 h-4 text-blue-100"></i>
+        </button>
+        <!-- 3. Private Mail -->
+        <button class="p-1.5 hover:bg-white/15 rounded-lg active:scale-90 transition" title="الخاص">
+          <i data-lucide="mail" class="w-4 h-4 text-blue-100"></i>
+        </button>
+        <!-- 4. Friend Requests -->
+        <button class="p-1.5 hover:bg-white/15 rounded-lg active:scale-90 transition" title="الطلبات">
+          <i data-lucide="user-plus" class="w-4 h-4 text-blue-100"></i>
+        </button>
+        <!-- 5. Profile -->
+        <button onclick="toggleProfileModal()" class="p-1.5 hover:bg-white/15 rounded-lg active:scale-90 transition" title="الملف الشخصي">
+          <i data-lucide="user" class="w-4 h-4 text-blue-100"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- IN-CHAT YOUTUBE FLOATING BANNER (Requirement 6) -->
+    <div id="ytPlayerBox" class="bg-slate-900 text-white px-3 py-2 flex items-center justify-between shadow border-b border-slate-800 transition-all duration-300 select-none">
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 rounded bg-red-600 flex items-center justify-center text-white shadow">
+          <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
+        </div>
+        <div class="text-right">
+          <p class="text-[11px] font-bold truncate max-w-[200px]">شيلات & موسيقى ديوانية العرب Live 🎵</p>
+          <p class="text-[9px] text-slate-400">بث متزامن في الغرفة</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1">
+        <button id="btnMuteYt" onclick="toggleYtMute()" class="p-1 text-slate-400 hover:text-white rounded">
+          <i data-lucide="volume-2" class="w-3.5 h-3.5"></i>
+        </button>
+        <button onclick="toggleYtPlayer()" class="p-1 text-slate-400 hover:text-white rounded">
+          <i data-lucide="chevron-up" class="w-3.5 h-3.5" id="ytChevron"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- 2. CHAT MESSAGES SCROLL AREA -->
+    <main id="chatMessages" class="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-100 select-text">
+
+      <!-- Message 1: Owner (Gold glow, left timestamp, rounded avatar) -->
+      <div class="flex items-start gap-2.5 group">
+        <img src="https://api.dicebear.com/7.x/bottts/svg?seed=AdminAli" alt="Avatar" class="avatar-rounded bg-amber-100 border border-amber-400 cursor-pointer shadow-sm hover:scale-105 transition" onclick="mentionUser('علي_المدير')">
+        <div class="flex-1 max-w-[85%]">
+          <div class="bg-white bubble-card p-2.5 shadow-sm border border-slate-200/80">
+            <div class="flex items-center justify-between mb-1 pb-1 border-b border-slate-100">
+              <span onclick="mentionUser('علي_المدير')" class="font-bold text-xs gold-glow cursor-pointer hover:underline flex items-center gap-1">
+                👑 علي (المالك)
+              </span>
+              <span class="text-[10px] text-slate-400 font-mono">14:32</span>
+            </div>
+            <p class="text-xs text-slate-800 leading-relaxed">
+              أهلاً وسهلاً بجميع الإخوة الكرام في الغرفة، نرجو الالتزام بقواعد الشات والاحترام المتبادل 🌹
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Message 2: Moderator (Silver rank) -->
+      <div class="flex items-start gap-2.5">
+        <img src="https://api.dicebear.com/7.x/bottts/svg?seed=ModSami" alt="Avatar" class="avatar-rounded bg-slate-200 border border-slate-400 cursor-pointer shadow-sm hover:scale-105 transition" onclick="mentionUser('سامي_مشرف')">
+        <div class="flex-1 max-w-[85%]">
+          <div class="bg-white bubble-card p-2.5 shadow-sm border border-slate-200/80">
+            <div class="flex items-center justify-between mb-1 pb-1 border-b border-slate-100">
+              <span onclick="mentionUser('سامي_مشرف')" class="font-bold text-xs silver-badge cursor-pointer hover:underline flex items-center gap-1">
+                🛡️ سامي (مشرف عام)
+              </span>
+              <span class="text-[10px] text-slate-400 font-mono">14:34</span>
+            </div>
+            <p class="text-xs text-slate-800 leading-relaxed">
+              تذكير: الرسائل المتكررة والإعلانات تُعرّض صاحبها لكتم فوري وحظر العتاد Hardware Ban 🔒
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Message 3: VIP Diamond Member (Custom Emerald Color) -->
+      <div class="flex items-start gap-2.5">
+        <img src="https://api.dicebear.com/7.x/bottts/svg?seed=FahadVIP" alt="Avatar" class="avatar-rounded bg-emerald-100 border border-emerald-400 cursor-pointer shadow-sm hover:scale-105 transition" onclick="mentionUser('فهد_التميمي')">
+        <div class="flex-1 max-w-[85%]">
+          <div class="bg-white bubble-card p-2.5 shadow-sm border border-slate-200/80">
+            <div class="flex items-center justify-between mb-1 pb-1 border-b border-slate-100">
+              <span onclick="mentionUser('فهد_التميمي')" class="font-bold text-xs text-emerald-600 cursor-pointer hover:underline flex items-center gap-1">
+                💎 فهد التميمي (VIP)
+              </span>
+              <span class="text-[10px] text-slate-400 font-mono">14:36</span>
+            </div>
+            <p class="text-xs text-slate-800 leading-relaxed">
+              مساء الخير للجميع، كيف الصوت واليوتيوب عندكم اليوم؟
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Message 4: Regular Member replying with Quick Mention -->
+      <div class="flex items-start gap-2.5">
+        <img src="https://api.dicebear.com/7.x/bottts/svg?seed=KhalidUser" alt="Avatar" class="avatar-rounded bg-blue-50 border border-blue-200 cursor-pointer shadow-sm hover:scale-105 transition" onclick="mentionUser('خالد')">
+        <div class="flex-1 max-w-[85%]">
+          <div class="bg-white bubble-card p-2.5 shadow-sm border border-slate-200/80">
+            <div class="flex items-center justify-between mb-1 pb-1 border-b border-slate-100">
+              <span onclick="mentionUser('خالد')" class="font-bold text-xs text-blue-900 cursor-pointer hover:underline">
+                👤 خالد
+              </span>
+              <span class="text-[10px] text-slate-400 font-mono">14:37</span>
+            </div>
+            <p class="text-xs text-slate-800 leading-relaxed">
+              <span class="text-blue-600 font-bold bg-blue-50 px-1 rounded">@فهد_التميمي:</span> الصوت واضح جداً واليوتيوب متزامن 100% 👍
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dynamic Messages Container -->
+      <div id="dynamicMessages"></div>
+
+    </main>
+
+    <!-- ADMIN QUICK TOGGLE BAR (Testing Ghost Mode & Spam) -->
+    <div class="bg-slate-200/90 px-3 py-1 text-[10px] flex items-center justify-between border-t border-slate-300">
+      <span class="text-slate-600 font-semibold flex items-center gap-1">
+        ⚙️ تجربة ميزات الأمان:
+      </span>
+      <div class="flex items-center gap-2">
+        <button onclick="toggleGhostMode()" id="ghostBadge" class="px-2 py-0.5 rounded bg-slate-300 text-slate-700 font-bold active:scale-95 transition">
+          👻 وضع الشبح: معطل
+        </button>
+        <button onclick="simulateSpamWarning()" class="px-2 py-0.5 rounded bg-amber-200 text-amber-900 font-bold active:scale-95 transition">
+          ⚠️ فحص السبام
+        </button>
+      </div>
+    </div>
+
+    <!-- 4. BOTTOM INPUT BAR (With Quick Mention & Send) -->
+    <footer class="bg-white px-3 py-2 border-t border-slate-200 shadow-lg flex items-center gap-2 z-20">
+      <button onclick="insertEmoji('🌹')" class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-lg active:scale-90 transition">
+        <i data-lucide="smile" class="w-5 h-5"></i>
+      </button>
+      
+      <input type="text" id="msgInput" placeholder="اكتب رسالتك هنا... (انقر على اسم أي شخص للإشارة له)" 
+             class="flex-1 bg-slate-100 text-slate-800 text-xs px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 placeholder-slate-400">
+
+      <button onclick="sendMessage()" class="royal-blue text-white p-2 rounded-xl active:scale-95 shadow hover:opacity-95 transition flex items-center justify-center">
+        <i data-lucide="send" class="w-4 h-4 transform -rotate-45"></i>
+      </button>
+    </footer>
+
+    <!-- SLIDE-OUT ONLINE USERS DRAWER (Requirement 5) -->
+    <div id="onlineDrawer" class="absolute inset-0 bg-black/50 z-40 hidden transition-opacity duration-300 flex justify-end">
+      <div class="w-3/4 max-w-xs bg-white h-full shadow-2xl p-4 flex flex-col transform translate-x-full transition-transform duration-300" id="drawerContent">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+          <h2 class="font-bold text-sm text-slate-800 flex items-center gap-1.5">
+            <i data-lucide="users" class="w-4 h-4 text-blue-600"></i>
+            المتصلون الآن (142)
+          </h2>
+          <button onclick="toggleDrawer()" class="p-1 text-slate-400 hover:text-slate-700">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto py-2 space-y-3">
+          <!-- Owners -->
+          <div>
+            <p class="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1.5">👑 الإدارة والمالك</p>
+            <div class="flex items-center justify-between p-2 rounded-lg bg-amber-50/50 hover:bg-amber-50 cursor-pointer" onclick="mentionUser('علي_المدير')">
+              <div class="flex items-center gap-2">
+                <img src="https://api.dicebear.com/7.x/bottts/svg?seed=AdminAli" class="w-8 h-8 rounded-lg">
+                <div>
+                  <p class="text-xs font-bold text-amber-700">علي (المالك)</p>
+                  <p class="text-[9px] text-amber-500">متصل الآن</p>
+                </div>
+              </div>
+              <span class="text-xs">👑</span>
+            </div>
+          </div>
+
+          <!-- Moderators -->
+          <div>
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">🛡️ المشرفون</p>
+            <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50 hover:bg-slate-100 cursor-pointer" onclick="mentionUser('سامي_مشرف')">
+              <div class="flex items-center gap-2">
+                <img src="https://api.dicebear.com/7.x/bottts/svg?seed=ModSami" class="w-8 h-8 rounded-lg">
+                <div>
+                  <p class="text-xs font-bold text-slate-700">سامي</p>
+                  <p class="text-[9px] text-slate-400">مشرف معتمد</p>
+                </div>
+              </div>
+              <span class="text-xs">🛡️</span>
+            </div>
+          </div>
+
+          <!-- VIPs -->
+          <div>
+            <p class="text-[10px] font-bold text-cyan-600 uppercase tracking-wider mb-1.5">💎 الأعضاء الماسيون</p>
+            <div class="flex items-center justify-between p-2 rounded-lg bg-cyan-50/50 hover:bg-cyan-50 cursor-pointer" onclick="mentionUser('فهد_التميمي')">
+              <div class="flex items-center gap-2">
+                <img src="https://api.dicebear.com/7.x/bottts/svg?seed=FahadVIP" class="w-8 h-8 rounded-lg">
+                <div>
+                  <p class="text-xs font-bold text-cyan-800">فهد التميمي</p>
+                  <p class="text-[9px] text-cyan-600">VIP عضوية مميزة</p>
+                </div>
+              </div>
+              <span class="text-xs">💎</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-slate-100 text-center">
+          <p class="text-[10px] text-slate-400">تطبيق غرف الدردشة الجماعية للأندرويد</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    let isGhostMode = false;
+    let ytMuted = false;
+
+    // Quick Mention Feature (Requirement 4)
+    function mentionUser(name) {
+      const input = document.getElementById('msgInput');
+      input.value = `@${name}: ` + input.value;
+      input.focus();
+    }
+
+    function insertEmoji(emoji) {
+      const input = document.getElementById('msgInput');
+      input.value += ` ${emoji}`;
+      input.focus();
+    }
+
+    function sendMessage() {
+      const input = document.getElementById('msgInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const time = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: false });
+      const container = document.getElementById('dynamicMessages');
+
+      if (isGhostMode) {
+        // Ghost Mode (Requirement 9): Only visible to the sender with a special discreet tag
+        const ghostMsg = `
+          <div class="flex items-start gap-2.5 border-r-2 border-purple-400 pr-1 opacity-80">
+            <img src="https://api.dicebear.com/7.x/bottts/svg?seed=UserMe" class="avatar-rounded bg-purple-100 border border-purple-300">
+            <div class="flex-1 max-w-[85%]">
+              <div class="bg-purple-50 bubble-card p-2.5 shadow-sm border border-purple-200">
+                <div class="flex items-center justify-between mb-1 pb-1 border-b border-purple-100">
+                  <span class="font-bold text-xs text-purple-700 flex items-center gap-1">
+                    👻 أنت (وضع الشبح - لا يراها أحد سواك)
+                  </span>
+                  <span class="text-[10px] text-purple-400 font-mono">${time}</span>
+                </div>
+                <p class="text-xs text-slate-800 leading-relaxed">${escapeHtml(text)}</p>
+              </div>
+            </div>
+          </div>
+        `;
+        container.insertAdjacentHTML('beforeend', ghostMsg);
+      } else {
+        const standardMsg = `
+          <div class="flex items-start gap-2.5">
+            <img src="https://api.dicebear.com/7.x/bottts/svg?seed=UserMe" class="avatar-rounded bg-blue-100 border border-blue-400">
+            <div class="flex-1 max-w-[85%]">
+              <div class="bg-white bubble-card p-2.5 shadow-sm border border-slate-200/80">
+                <div class="flex items-center justify-between mb-1 pb-1 border-b border-slate-100">
+                  <span class="font-bold text-xs text-blue-700">👤 أنت</span>
+                  <span class="text-[10px] text-slate-400 font-mono">${time}</span>
+                </div>
+                <p class="text-xs text-slate-800 leading-relaxed">${escapeHtml(text)}</p>
+              </div>
+            </div>
+          </div>
+        `;
+        container.insertAdjacentHTML('beforeend', standardMsg);
+      }
+
+      input.value = '';
+      const chat = document.getElementById('chatMessages');
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      return text.replace(/[&<>"']/g, function(m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+      });
+    }
+
+    // Drawer Toggle (Requirement 5)
+    const drawer = document.getElementById('onlineDrawer');
+    const drawerContent = document.getElementById('drawerContent');
+    document.getElementById('btnDrawer').addEventListener('click', toggleDrawer);
+
+    function toggleDrawer() {
+      if (drawer.classList.contains('hidden')) {
+        drawer.classList.remove('hidden');
+        setTimeout(() => drawerContent.classList.remove('translate-x-full'), 10);
+      } else {
+        drawerContent.classList.add('translate-x-full');
+        setTimeout(() => drawer.classList.add('hidden'), 300);
+      }
+    }
+
+    // Ghost Mode Simulation (Requirement 9)
+    function toggleGhostMode() {
+      isGhostMode = !isGhostMode;
+      const badge = document.getElementById('ghostBadge');
+      if (isGhostMode) {
+        badge.className = "px-2 py-0.5 rounded bg-purple-600 text-white font-bold active:scale-95 transition";
+        badge.innerText = "👻 وضع الشبح: مفعّل";
+        alert("تم تفعيل وضع الشبح!\nرسائلك القادمة ستظهر لك فقط ولن تظهر لباقي أعضاء الغرفة.");
+      } else {
+        badge.className = "px-2 py-0.5 rounded bg-slate-300 text-slate-700 font-bold active:scale-95 transition";
+        badge.innerText = "👻 وضع الشبح: معطل";
+      }
+    }
+
+    function simulateSpamWarning() {
+      alert("⚠️ محرك الحماية:\nتم رصد تكرار سريع للرسائل! تم كتم الإرسال مؤقتاً لمدة 10 ثوانٍ لمنع السبام.");
+    }
+
+    // YouTube Toggle (Requirement 6)
+    function toggleYtPlayer() {
+      const box = document.getElementById('ytPlayerBox');
+      const chevron = document.getElementById('ytChevron');
+      if (box.classList.contains('h-10')) {
+        box.classList.remove('h-10');
+        chevron.setAttribute('data-lucide', 'chevron-up');
+      } else {
+        box.classList.add('h-10');
+        chevron.setAttribute('data-lucide', 'chevron-down');
+      }
+      lucide.createIcons();
+    }
+
+    function toggleYtMute() {
+      ytMuted = !ytMuted;
+      const btn = document.getElementById('btnMuteYt');
+      btn.innerHTML = ytMuted ? '<i data-lucide="volume-x" class="w-3.5 h-3.5 text-red-400"></i>' : '<i data-lucide="volume-2" class="w-3.5 h-3.5"></i>';
+      lucide.createIcons();
+    }
+
+    function switchRoomModal() {
+      alert("🚪 مبدّل الغرف:\n1. ديوانية العرب (عامة - 142 عضو)\n2. سوالف شباب (خاصة - 38 عضو)\n3. ملتقى الشعراء (خاصة - 15 عضو)");
+    }
+
+    function toggleProfileModal() {
+      alert("👤 الملف الشخصي:\n- اللقب: فهد\n- الرتبة: عضو ماسي 💎\n- اللون المخصص: أخضر زمردي (#059669)\n- معرّف الجهاز: 4a8b-99f2-uuid");
+    }
+
+    // Enter key sends
+    document.getElementById('msgInput').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') sendMessage();
+    });
+  </script>
+</body>
+</html>

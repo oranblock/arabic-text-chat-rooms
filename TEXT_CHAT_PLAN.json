@@ -1,0 +1,291 @@
+{
+  "project_info": {
+    "project_name": "Arabic Text Chat Rooms App (تطبيق غرف الدردشة الجماعية والكتابية للأندرويد)",
+    "client_name": "علي ع. (Ali A.)",
+    "reference_proposal_topic": "استفسار حول تطوير وإعداد تطبيق دردشة جماعية ونظام غرف كتابية للأندرويد",
+    "target_platform": "Android (Kotlin Jetpack Compose MAD) + Node.js/Socket.io Backend",
+    "target_delivery_timeline_days": 10,
+    "support_period_days": 60,
+    "currency": "USD"
+  },
+  "financial_breakdown": {
+    "development_fee_offer": 110.0,
+    "costs_incurred_by_client": [
+      {
+        "service": "Google Play Developer Account (حساب مطور جوجل بلاي)",
+        "cost": 25.0,
+        "type": "one-time",
+        "paid_to": "Google Inc.",
+        "necessity": "إلزامي لنشر التطبيق رسمياً في متجر Google Play باسم وهوية العميل القانونية."
+      },
+      {
+        "service": "Cloud VPS Server (سيرفر استضافة الشات وقاعدة البيانات)",
+        "cost_monthly": 4.5,
+        "cost_annual": 54.0,
+        "type": "recurring_monthly",
+        "recommended_provider": "Hetzner Cloud CX22 / Contabo Cloud VPS / Oracle Cloud Free Tier",
+        "necessity": "إلزامي لتشغيل خادم Socket.io وقاعدة بيانات الرسائل وسجلات الحظر."
+      },
+      {
+        "service": "Custom Domain & SSL (اسم النطاق وشهادة التشفير)",
+        "cost_annual": 10.0,
+        "type": "optional_annual",
+        "alternative": "يمكن استخدام سيرفر VPS بـ IP مباشر أو نطاق فرعي مجاني (DuckDNS / Let's Encrypt) بتكلفة $0."
+      }
+    ],
+    "costs_incurred_by_developer": [
+      {
+        "tool": "Android Studio / Termux PRoot Build Environment",
+        "cost": 0.0,
+        "type": "free_open_source"
+      },
+      {
+        "tool": "Firebase Cloud Messaging (FCM)",
+        "cost": 0.0,
+        "type": "free_tier_unlimited"
+      },
+      {
+        "tool": "YouTube Player API / Android Webview IFrame",
+        "cost": 0.0,
+        "type": "free_official_api"
+      }
+    ],
+    "net_developer_margin_percentage": 95.0,
+    "total_client_initial_investment": 135.0,
+    "notes": "العميل يدفع 110$ لك عبر مستقل + 25$ لجوجل مباشرة بالفيزا الخاصة به + 4-5$ شهرياً للسيرفر."
+  },
+  "subscriptions_required": [
+    {
+      "id": "sub_google_play",
+      "name": "Google Play Console Developer Account",
+      "provider": "Google",
+      "cost": "$25 (مرة واحدة مدى الحياة)",
+      "payment_method": "بطاقة ائتمان / فيزا / ماستركارد باسم العميل",
+      "responsibility": "العميل يقوم بالدفع، والمطور يقدم إرشادات خطوة بخطوة بالصور والفيديو.",
+      "notes": "يحمي المطور من حظر حسابه في حال نشر العميل محتوى مخالف، ويضمن ملكية العميل الكاملة."
+    },
+    {
+      "id": "sub_vps_server",
+      "name": "Cloud VPS (Linux Ubuntu 24.04 LTS)",
+      "provider": "Hetzner Cloud (CX22) / DigitalOcean / Contabo",
+      "cost": "$4.50 - $6.00 / شهرياً",
+      "payment_method": "فيزا / بايبال",
+      "responsibility": "العميل يشترك بالسيرفر ويسلم بيانات الـ SSH للمطور لضبط الخادم وتشغيل الشات.",
+      "specifications": "2 vCPU, 4GB RAM, 40GB NVMe, 20TB Traffic (يكفي لآلاف المتصلين المتزامنين)"
+    },
+    {
+      "id": "sub_firebase",
+      "name": "Google Firebase (FCM)",
+      "provider": "Google Firebase",
+      "cost": "$0 (مجاني تماماً)",
+      "payment_method": "حساب Google مجاني",
+      "responsibility": "المطور يقوم بربطه لإرسال الإشعارات الفورية (Push Notifications) للغرف."
+    }
+  ],
+  "client_9_requirements_mapping": [
+    {
+      "id": "REQ_01_UI_UX",
+      "title": "واجهة وتصميم التطبيق (UI/UX)",
+      "specifications": [
+        "فقاعات الرسائل (Bubbles) مستطيلة بزوايا دائرية عصرية.",
+        "عرض الصور الشخصية (Avatars) كمربعات بزوايا دائرية (Rounded Square).",
+        "توقيت الرسائل على جهة اليسار دائماً بتنسيق دقيق.",
+        "شريط أدوات علوي باللون الأزرق الملكي يحتوي أزراراً سريعة: (إشعارات، قائمة الغرف، ملف شخصي، بريد، طلبات).",
+        "حقل سفلي ممتد مع زر إرسال وإيموجي وملفات، وميزة النقر على اسم العضو لإضافته تلقائياً في خانة الكتابة.",
+        "قائمة المتصلين (Online Drawer) لرؤية المتواجدين داخل الغرفة بشكل واضح وحي."
+      ],
+      "status": "Planned"
+    },
+    {
+      "id": "REQ_02_ROLES_COLORS",
+      "title": "نظام الرتب والصلاحيات وألوان المستخدمين",
+      "specifications": [
+        "المستخدم العادي: لون ثابت لا يمكن تغييره ويدخل مكتوماً لحين التفعيل.",
+        "العضو المميز (💎): علامة الألماس، صلاحية تغيير الصورة وفتح الخاص، وخاصية اختيار وتغيير لون الاسم من إعدادات الحساب.",
+        "رتبة المدير/صاحب الروم: خط عادي أنيق، باللون الذهبي المتوهج والأسود الفخم (ألوان ثابتة بدون حركة).",
+        "رتبة المشرف/الإدارة: لون رمادي غامق / فضي ملكي فخم وثابت."
+      ],
+      "status": "Planned"
+    },
+    {
+      "id": "REQ_03_ANTI_SPAM",
+      "title": "نظام منع التكرار والسبام (Anti-Spam)",
+      "specifications": [
+        "حظر إرسال الرسائل المتطابقة خلف بعضها.",
+        "تحديد معدل الإرسال (Rate Limiter: مهلة 2 ثانية بين كل رسالة وأخرى).",
+        "إيقاف مؤقت تلقائي لمن يحاول إغراق الغرفة بالرسائل السريعة."
+      ],
+      "status": "Planned"
+    },
+    {
+      "id": "REQ_04_AUTH_PROTECTION",
+      "title": "الحماية وحسابات الأعضاء",
+      "specifications": [
+        "تسجيل الدخول بالاسم والرمز السري مع حفظ الرتبة واسترجاعها من أي جهاز.",
+        "كتم تلقائي للحسابات الجديدة (Auto-Mute on Join) لحين تفعيل العضو بنقرة واحدة من المشرف."
+      ],
+      "status": "Planned"
+    },
+    {
+      "id": "REQ_05_ROOM_CONTROLS",
+      "title": "خيارات التحكم وإدارة الغرف (لوحة المشرفين المصغرة)",
+      "specifications": [
+        "عرض قائمة الأعضاء مع إمكانية الفرز والبحث.",
+        "قفل/فتح الإرسال في الشات العام للغرفة.",
+        "قفل/فتح المحادثات الخاصة.",
+        "إرسال إشعار فوري (Push Notification) عام لجميع الأعضاء."
+      ],
+      "status": "Planned"
+    },
+    {
+      "id": "REQ_06_SMART_FILTER_GHOST",
+      "title": "البوت والفلتر الذكي ووضع الشبح (Ghost Mode)",
+      "specifications": [
+        "فلتر ذكي على السيرفر لمحجوبات السب والشتم وحظر الروابط وأرقام الهواتف.",
+        "ميزة وضع الشبح (Ghost Mode / Shadowban): العضو المخرب يكتب ويرى رسائله وحده، بينما تختفي فوراً عن بقية أعضاء الغرفة دون أن يدري أنه محظور."
+      ],
+      "status": "Planned"
+    },
+    {
+      "id": "REQ_07_STRICT_BAN",
+      "title": "نظام الحظر الصارم وتتبع السجل",
+      "specifications": [
+        "حفظ دائم لسجلات المحادثات في قاعدة البيانات مع عدم الحذف إلا بقرار يدوي من المدير.",
+        "حظر صارم ومقاوم للفورمات يعتمد على معرف الجهاز الفريد (Hardware/Device UUID) وحساب Google.",
+        "حظر شخصي بين الأعضاء، كشف الحسابات البديلة من نفس الجهاز، وسجل الأسماء السابقة."
+      ],
+      "status": "Planned"
+    },
+    {
+      "id": "REQ_08_YOUTUBE_MEDIA",
+      "title": "ميزة ميديا يوتيوب المدمجة (In-Chat YouTube)",
+      "specifications": [
+        "نافذة مشغل يوتيوب مصغرة داخل شاشة الشات من الأعلى.",
+        "تصفح المقاطع وتشغيل الصوت ومشاركته مع أعضاء الغرفة أثناء استمرار المحادثة دون مغادرة التطبيق."
+      ],
+      "status": "Planned"
+    },
+    {
+      "id": "REQ_09_DELIVERY_SUPPORT",
+      "title": "التسليم والدعم الفني",
+      "specifications": [
+        "تسليم ملفات السورس كود الكاملة (Frontend Android Kotlin Compose + Backend Node.js/Socket.io).",
+        "تسليم ملف APK جاهز للتثبيت والمشاركة المباشرة.",
+        "ضمان ودعم فني مجاني لمدة شهرين (60 يوماً) لإصلاح أي أخطاء برمجية بعد التسليم."
+      ],
+      "status": "Planned"
+    }
+  ],
+  "phases": [
+    {
+      "phase": 1,
+      "title": "Phase 1: Deal Closure & Requirements Lock (حسم الاتفاق مع العميل)",
+      "duration_days": 1,
+      "steps": [
+        "إرسال رسالة الإقناع للعميل علي ع. بسعر 110$ وحل مشكلة حساب مطور جوجل.",
+        "تعديل العرض على منصة مستقل إلى 110$ وقبول العميل للبدء الرسمي.",
+        "تأكيد مسمى التطبيق، الألوان الأساسية، والشعار الأولي."
+      ],
+      "deliverables": [
+        "عقد المشروع نشط على مستقل برصيد محجوز 110$"
+      ]
+    },
+    {
+      "phase": 2,
+      "title": "Phase 2: Project Architecture & Scaffolding with Composer (التأسيس المعماري)",
+      "duration_days": 1,
+      "steps": [
+        "استخدام composer_ultimate_starting_mystro.py لتأسيس معمارية Jetpack Compose Clean Architecture.",
+        "توليد build.gradle.kts و libs.versions.toml وحزم Koin DI و Room و Retrofit.",
+        "إنشاء مجلد المشروع المخصص: projects/client_ali_text_chat/.",
+        "إعداد المودل (Domain Layer): Message, User, Room, Role, BanRule, YouTubeVideo."
+      ],
+      "deliverables": [
+        "هيكل كود أندرويد نظيف قابل للبناء بدون أخطاء"
+      ]
+    },
+    {
+      "phase": 3,
+      "title": "Phase 3: Real-Time Server & Database Setup (سيرفر المحادثات وقاعدة البيانات)",
+      "duration_days": 2,
+      "steps": [
+        "بناء خادم Node.js مع Socket.io و Express و SQLite/PostgreSQL.",
+        "برمجة أحداث الغرف (room_join, room_leave, send_message, typing, mute_user).",
+        "برمجة ميزة وضع الشبح (Ghost Mode): توجيه رسائل المخرب لنفسه فقط socket.emit دون broadcast.",
+        "برمجة محرك منع السبام وفلتر الكلمات السيئة ونظام البصمة (Device Fingerprint Ban)."
+      ],
+      "deliverables": [
+        "خادم محادثات فورية يعمل محلياً وعلى السيرفر بنظام WebSocket"
+      ]
+    },
+    {
+      "phase": 4,
+      "title": "Phase 4: Client UI/UX & Specifications Implementation (تنفيذ واجهات الشات والشروط الـ 9)",
+      "duration_days": 3,
+      "steps": [
+        "بناء واجهة الشات الرئيسية: شريط أدوات أزرق علوي مع أيقونات (إشعارات، غرف، بروفايل، بريد، طلبات).",
+        "برمجة فقاعات الرسائل المستطيلة ذات الزوايا الدائرية مع الأفاتار المربع ذي الزوايا المنحنية.",
+        "تثبيت توقيت الرسالة جهة اليسار دائماً وتلوين الأسماء حسب الرتبة (عادي، مميز 💎، مشرف، مدير ذهبي).",
+        "برمجة قائمة المتصلين (Online Users Drawer) وتحديثها لحظياً عند الدخول والخروج.",
+        "برمجة ميزة الضغط السريع على اسم العضو لنسخه إلى حقل الإدخال السفلي.",
+        "برمجة لوحة المشرفين المصغرة: قفل العام، قفل الخاص، إرسال إشعار، وكتم الأعضاء الجدد."
+      ],
+      "deliverables": [
+        "واجهة تطبيق متطابقة 100% مع الصورة والشروط التسعة للعميل"
+      ]
+    },
+    {
+      "phase": 5,
+      "title": "Phase 5: In-Chat YouTube Media Integration (مشغل اليوتيوب المدمج)",
+      "duration_days": 1,
+      "steps": [
+        "دمج مشغل يوتيوب مصغر تفاعلي أعلى نافذة الدردشة باستخدام Android WebView IFrame / YouTube Player API.",
+        "دعم استمرار تشغيل الصوت في الخلفية أثناء كتابة وقراءة رسائل الشات.",
+        "إمكانية إخفاء/إظهار مشغل اليوتيوب بسلاسة لتوفير مساحة الشاشة."
+      ],
+      "deliverables": [
+        "مشغل يوتيوب يعمل بكفاءة داخل شاشة الدردشة بدون تعليق"
+      ]
+    },
+    {
+      "phase": 6,
+      "title": "Phase 6: Testing, Hardening & Security Audit (الاختبار والتأمين)",
+      "duration_days": 1,
+      "steps": [
+        "فحص الأمان عبر ci_gate.sh و scan_dependencies.sh.",
+        "اختبار منع السبام بحقن رسائل سريعة والتأكد من تفعيل المهلة الزمنية.",
+        "اختبار الحظر عبر تغيير الاسم والتأكد من إغلاق الحسابات البديلة من نفس الجهاز.",
+        "بناء وتوقيع نسخة APK الإنتاجية الأولى واختبارها عبر ADB على جهاز حقيقي."
+      ],
+      "deliverables": [
+        "تقرير فحص أمني نظيف + ملف APK مستقر 100%"
+      ]
+    },
+    {
+      "phase": 7,
+      "title": "Phase 7: Google Play Account Setup & Store Readiness (تجهيز المتجر والرفع)",
+      "duration_days": 1,
+      "steps": [
+        "توجيه العميل لفتح حساب Google Play Console (دفع رسوم 25$ لجوجل).",
+        "إعداد الأيقونات الاحترافية، لقطات الشاشة، وسياسة الخصوصية (Privacy Policy).",
+        "رفع ملف AAB على المسار التجريبي/الإنتاجي وتعبئة استبيان المحتوى والأمان."
+      ],
+      "deliverables": [
+        "التطبيق مرفوع للمراجعة على Google Play Console"
+      ]
+    },
+    {
+      "phase": 8,
+      "title": "Phase 8: Final Delivery, Source Code Handover & 60-Day Warranty (التسليم والضمان)",
+      "duration_days": 1,
+      "steps": [
+        "تسليم ملفات السورس كود الكاملة مرتبة وموثقة في مستودع GitHub خاص أو أرشيف مضغوط.",
+        "تسليم توثيق إعداد السيرفر (Deployment Runbook).",
+        "بدء سريان فترة الدعم الفني المجاني لمدة شهرين (60 يوماً)."
+      ],
+      "deliverables": [
+        "تسليم مكتمل ومراجعة إيجابية 5 نجوم على منصة مستقل"
+      ]
+    }
+  ]
+}
