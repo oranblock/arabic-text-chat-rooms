@@ -4,6 +4,7 @@ import android.util.Log
 import com.ali.textchat.model.ChatMessage
 import com.ali.textchat.model.ChatRoom
 import com.ali.textchat.model.ChatUser
+import com.ali.textchat.model.PmThread
 import com.ali.textchat.model.UserRank
 import io.socket.client.Ack
 import io.socket.client.IO
@@ -45,6 +46,14 @@ class ChatSocket(
     val privates: StateFlow<List<ChatMessage>> = _privates
     private val _youtubeId = MutableStateFlow<String?>(null)
     val youtubeId: StateFlow<String?> = _youtubeId
+    private val _notifications = MutableStateFlow<List<String>>(emptyList())
+    val notifications: StateFlow<List<String>> = _notifications
+    private val _threads = MutableStateFlow<List<PmThread>>(emptyList())
+    val threads: StateFlow<List<PmThread>> = _threads
+    private val _requests = MutableStateFlow<List<PmThread>>(emptyList())
+    val requests: StateFlow<List<PmThread>> = _requests
+
+    private fun notify(line: String) { _notifications.value = (_notifications.value + line).takeLast(50) }
 
     var token: String? = null
         private set
@@ -82,9 +91,19 @@ class ChatSocket(
                 if (_me.value?.id == u.id) _me.value = u
             } }
             s.on("rooms") { a -> (a.firstOrNull() as? JSONObject)?.optJSONArray("rooms")?.let { _rooms.value = parseRooms(it) } }
-            s.on("private_message") { a -> (a.firstOrNull() as? JSONObject)?.let { _privates.value = _privates.value + parseMessage(it) } }
+            s.on("private_message") { a -> (a.firstOrNull() as? JSONObject)?.let {
+                val m = parseMessage(it)
+                _privates.value = _privates.value + m
+                if (m.senderId != _me.value?.id) notify("✉️ خاص من ${m.senderName}: ${m.text.take(40)}")
+            } }
+            s.on("request_received") { a -> (a.firstOrNull() as? JSONObject)?.let {
+                notify("👋 ${it.optString("fromName")} يريد إضافتك")
+            } }
             s.on("error_alert") { a -> _errors.value = (a.firstOrNull() as? JSONObject)?.optString("message") }
-            s.on("broadcast") { a -> (a.firstOrNull() as? JSONObject)?.let { _errors.value = "📢 ${it.optString("by")}: ${it.optString("text")}" } }
+            s.on("broadcast") { a -> (a.firstOrNull() as? JSONObject)?.let {
+                _errors.value = "📢 ${it.optString("by")}: ${it.optString("text")}"
+                notify("📢 ${it.optString("by")}: ${it.optString("text")}")
+            } }
             s.on("youtube_updated") { a -> (a.firstOrNull() as? JSONObject)?.let { _youtubeId.value = it.optString("videoId") } }
             s.on("force_disconnect") { a ->
                 _status.value = Status.BANNED
@@ -170,6 +189,36 @@ class ChatSocket(
             if (targetUserId != null) put("targetUserId", targetUserId)
             extra()
         })
+    }
+
+    fun loadThreads() {
+        socket?.emit("list_threads", JSONObject(), Ack { res ->
+            (res.firstOrNull() as? JSONObject)?.optJSONArray("threads")?.let { _threads.value = parseThreads(it) }
+        })
+    }
+
+    fun loadRequests() {
+        socket?.emit("list_requests", JSONObject(), Ack { res ->
+            (res.firstOrNull() as? JSONObject)?.optJSONArray("requests")?.let { _requests.value = parseThreads(it) }
+        })
+    }
+
+    fun sendRequest(toUserId: String) = socket?.emit("send_request", JSONObject().apply { put("toUserId", toUserId) })
+
+    fun respondRequest(fromUserId: String, accept: Boolean) {
+        socket?.emit("accept_request", JSONObject().apply { put("fromUserId", fromUserId); put("accept", accept) },
+            Ack { _ -> loadRequests() })
+    }
+
+    fun clearNotifications() { _notifications.value = emptyList() }
+
+    private fun parseThreads(a: JSONArray) = (0 until a.length()).map {
+        val o = a.getJSONObject(it)
+        PmThread(
+            userId = o.optString("userId"), name = o.optString("name"),
+            rank = runCatching { UserRank.valueOf(o.optString("rank", "REGULAR")) }.getOrDefault(UserRank.REGULAR),
+            avatarUrl = o.optString("avatarUrl"), lastText = o.optString("lastText")
+        )
     }
 
     /** Registers the FCM token so the server can push private messages/broadcasts offline. */

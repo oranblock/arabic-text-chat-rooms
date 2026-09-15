@@ -37,6 +37,15 @@ data class ChatMessage(
     val isGhost: Boolean = false
 )
 
+/** A private-message inbox entry (someone this user has a thread with). */
+data class PmThread(
+    val userId: String,
+    val name: String,
+    val rank: UserRank = UserRank.REGULAR,
+    val avatarUrl: String = "",
+    val lastText: String = ""
+)
+
 @Serializable
 data class ChatRoom(
     val id: String,

@@ -259,6 +259,68 @@ io.on('connection', (socket) => {
     if (typeof cb === 'function') cb({ ok: true, messages: store.state.privates[key] || [] });
   });
 
+  // Private-message inbox: list everyone this user has a thread with (condition 1 button).
+  socket.on('list_threads', (_p, cb) => {
+    const user = currentUser();
+    if (!user) return fail(cb, 'سجل الدخول');
+    const threads = [];
+    for (const [key, list] of Object.entries(store.state.privates)) {
+      const ids = key.split('|');
+      if (!ids.includes(user.id) || !list.length) continue;
+      const otherId = ids[0] === user.id ? ids[1] : ids[0];
+      const other = store.state.users[otherId];
+      if (!other) continue;
+      const last = list[list.length - 1];
+      threads.push({
+        userId: other.id, name: other.name, rank: other.rank,
+        avatarUrl: other.avatarUrl || '', lastText: last.text, at: last.at || 0
+      });
+    }
+    threads.sort((a, b) => b.at - a.at);
+    if (typeof cb === 'function') cb({ ok: true, threads });
+  });
+
+  // Friend / add requests (condition 1 requests button).
+  socket.on('send_request', ({ toUserId } = {}, cb) => {
+    const user = currentUser();
+    if (!user) return fail(cb, 'سجل الدخول');
+    const target = store.state.users[toUserId];
+    if (!target || target.id === user.id) return fail(cb, 'العضو غير موجود');
+    target.requests = target.requests || [];
+    user.friends = user.friends || [];
+    if (user.friends.includes(toUserId)) return fail(cb, 'أنتم أصدقاء بالفعل');
+    if (!target.requests.includes(user.id)) target.requests.push(user.id);
+    store.flush();
+    const tp = online.get(toUserId);
+    if (tp) io.to(tp.socketId).emit('request_received', { fromUserId: user.id, fromName: user.name });
+    else pushToUser(target, 'طلب صداقة', `${user.name} يريد إضافتك`, { type: 'request', fromUserId: user.id });
+    if (typeof cb === 'function') cb({ ok: true });
+  });
+
+  socket.on('list_requests', (_p, cb) => {
+    const user = currentUser();
+    if (!user) return fail(cb, 'سجل الدخول');
+    const reqs = (user.requests || []).map(id => store.state.users[id]).filter(Boolean)
+      .map(u => ({ userId: u.id, name: u.name, rank: u.rank, avatarUrl: u.avatarUrl || '' }));
+    if (typeof cb === 'function') cb({ ok: true, requests: reqs });
+  });
+
+  socket.on('accept_request', ({ fromUserId, accept } = {}, cb) => {
+    const user = currentUser();
+    if (!user) return fail(cb, 'سجل الدخول');
+    user.requests = (user.requests || []).filter(id => id !== fromUserId);
+    if (accept !== false) {
+      const other = store.state.users[fromUserId];
+      if (other) {
+        user.friends = user.friends || []; other.friends = other.friends || [];
+        if (!user.friends.includes(fromUserId)) user.friends.push(fromUserId);
+        if (!other.friends.includes(user.id)) other.friends.push(user.id);
+      }
+    }
+    store.flush();
+    if (typeof cb === 'function') cb({ ok: true });
+  });
+
   socket.on('update_profile', ({ customHexColor, avatarUrl, status } = {}, cb) => {
     const user = currentUser();
     if (!user) return fail(cb, 'سجل الدخول');

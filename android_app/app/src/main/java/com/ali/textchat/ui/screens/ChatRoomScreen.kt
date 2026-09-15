@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.ali.textchat.data.ChatSocket
 import com.ali.textchat.model.ChatRoom
 import com.ali.textchat.model.ChatUser
+import com.ali.textchat.model.PmThread
 import com.ali.textchat.model.UserRank
 import com.ali.textchat.ui.components.MessageBubble
 import com.ali.textchat.ui.components.OnlineUsersDrawer
@@ -52,6 +53,9 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
     val rooms by socket.rooms.collectAsState()
     val error by socket.errors.collectAsState()
     val ytId by socket.youtubeId.collectAsState()
+    val notifications by socket.notifications.collectAsState()
+    val threads by socket.threads.collectAsState()
+    val requests by socket.requests.collectAsState()
 
     var input by remember { mutableStateOf("") }
     var showEmoji by remember { mutableStateOf(false) }
@@ -60,6 +64,9 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
     var modTarget by remember { mutableStateOf<ChatUser?>(null) }
     var privTarget by remember { mutableStateOf<ChatUser?>(null) }
     var ytVisible by remember { mutableStateOf(false) }
+    var showNotifs by remember { mutableStateOf(false) }
+    var showInbox by remember { mutableStateOf(false) }
+    var showRequests by remember { mutableStateOf(false) }
 
     LaunchedEffect(ytId) { if (!ytId.isNullOrBlank()) ytVisible = true }
     val listState = rememberLazyListState()
@@ -103,7 +110,9 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                HeadOption(Icons.Default.Logout, 0) { onLogout() }
+                HeadOption(Icons.Default.Notifications, notifications.size) { showNotifs = true }
+                HeadOption(Icons.Default.Email, 0) { socket.loadThreads(); showInbox = true }
+                HeadOption(Icons.Default.PersonAdd, requests.size) { socket.loadRequests(); showRequests = true }
                 HeadOption(Icons.Default.AccountCircle, 0) { showProfile = true }
                 HeadOption(Icons.Default.People, users.size) { scope.launch { drawerState.open() } }
             }
@@ -164,10 +173,18 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
 
     if (showRooms) RoomsDialog(rooms, room?.id, onPick = { socket.joinRoom(it); showRooms = false }, onDismiss = { showRooms = false })
     if (showProfile) me?.let { u ->
-        ProfileDialog(u, onDismiss = { showProfile = false }) { color, avatar, status ->
+        ProfileDialog(u, onLogout = { showProfile = false; onLogout() }, onDismiss = { showProfile = false }) { color, avatar, status ->
             socket.updateProfile(color, avatar, status) { _, _ -> }; showProfile = false
         }
     }
+    if (showNotifs) NotificationsDialog(notifications, onClear = { socket.clearNotifications(); showNotifs = false }, onDismiss = { showNotifs = false })
+    if (showInbox) InboxDialog(threads, onPick = { t ->
+        showInbox = false
+        privTarget = ChatUser(t.userId, t.name, t.avatarUrl, t.rank, null, "", false, false)
+        socket.loadPrivateHistory(t.userId)
+    }, onDismiss = { showInbox = false })
+    if (showRequests) RequestsDialog(requests,
+        onRespond = { id, ok -> socket.respondRequest(id, ok) }, onDismiss = { showRequests = false })
     modTarget?.let { t -> ModerationDialog(t, onDismiss = { modTarget = null }) { action -> socket.moderate(action, t.id); modTarget = null } }
     privTarget?.let { t -> PrivateChatDialog(socket, t, onDismiss = { privTarget = null }) }
 }
@@ -236,7 +253,7 @@ private fun RoomsDialog(rooms: List<ChatRoom>, currentId: String?, onPick: (Stri
 }
 
 @Composable
-private fun ProfileDialog(me: ChatUser, onDismiss: () -> Unit, onSave: (color: String?, avatar: String?, status: String?) -> Unit) {
+private fun ProfileDialog(me: ChatUser, onLogout: () -> Unit, onDismiss: () -> Unit, onSave: (color: String?, avatar: String?, status: String?) -> Unit) {
     val colors = listOf("#D31027", "#7929FF", "#03ADD8", "#28C76F", "#CC9835", "#CE34E9", "#2196F3", "#FF9800")
     val avatarSeeds = listOf("Iraq", "Baghdad", "Basra", "Najaf", "Karbala", "Mosul", "Kufa", "Anbar")
     var picked by remember { mutableStateOf(me.customHexColor) }
@@ -280,6 +297,85 @@ private fun ProfileDialog(me: ChatUser, onDismiss: () -> Unit, onSave: (color: S
                 .clickable { onSave(if (vip) picked else null, avatar, "online") }, contentAlignment = Alignment.Center) {
                 Text("حفظ", color = Color.White, fontWeight = FontWeight.Bold)
             }
+            Spacer(Modifier.height(8.dp))
+            Box(Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(6.dp))
+                .border(1.dp, Color(0xFFD32F2F), RoundedCornerShape(6.dp))
+                .clickable { onLogout() }, contentAlignment = Alignment.Center) {
+                Text("تسجيل الخروج", color = Color(0xFFD32F2F), fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun NotificationsDialog(items: List<String>, onClear: () -> Unit, onDismiss: () -> Unit) {
+    Dialog(onDismiss) {
+        Column(Modifier.clip(RoundedCornerShape(14.dp)).background(Color.White).padding(14.dp).fillMaxWidth(0.9f).heightIn(max = 460.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("الإشعارات", color = BcAccent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.weight(1f))
+                if (items.isNotEmpty()) Text("مسح", color = Color(0xFF888888), fontSize = 13.sp, modifier = Modifier.clickable { onClear() })
+            }
+            Spacer(Modifier.height(10.dp))
+            if (items.isEmpty()) Text("لا توجد إشعارات", color = Color(0xFF999999), fontSize = 13.sp)
+            LazyColumn {
+                items(items.reversed()) { line ->
+                    Text(line, color = Color(0xFF333333), fontSize = 13.sp,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
+                    HorizontalDivider(color = BcInputBorder)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InboxDialog(threads: List<PmThread>, onPick: (PmThread) -> Unit, onDismiss: () -> Unit) {
+    Dialog(onDismiss) {
+        Column(Modifier.clip(RoundedCornerShape(14.dp)).background(Color.White).padding(14.dp).fillMaxWidth(0.9f).heightIn(max = 460.dp)) {
+            Text("الرسائل الخاصة", color = BcAccent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(10.dp))
+            if (threads.isEmpty()) Text("لا توجد محادثات خاصة", color = Color(0xFF999999), fontSize = 13.sp)
+            LazyColumn {
+                items(threads) { t ->
+                    Row(Modifier.fillMaxWidth().clickable { onPick(t) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("${t.rank.badge} ", fontSize = 14.sp)
+                        Column(Modifier.weight(1f)) {
+                            Text(t.name, color = Color(0xFF333333), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text(t.lastText, color = Color(0xFF888888), fontSize = 12.sp, maxLines = 1)
+                        }
+                        Icon(Icons.Default.Email, null, tint = BcAccent, modifier = Modifier.size(18.dp))
+                    }
+                    HorizontalDivider(color = BcInputBorder)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RequestsDialog(requests: List<PmThread>, onRespond: (String, Boolean) -> Unit, onDismiss: () -> Unit) {
+    Dialog(onDismiss) {
+        Column(Modifier.clip(RoundedCornerShape(14.dp)).background(Color.White).padding(14.dp).fillMaxWidth(0.9f).heightIn(max = 460.dp)) {
+            Text("طلبات الإضافة", color = BcAccent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(10.dp))
+            if (requests.isEmpty()) Text("لا توجد طلبات", color = Color(0xFF999999), fontSize = 13.sp)
+            LazyColumn {
+                items(requests) { r ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("${r.rank.badge} ", fontSize = 14.sp)
+                        Text(r.name, color = Color(0xFF333333), fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                        Box(Modifier.clip(RoundedCornerShape(6.dp)).background(BcHeaderEnd).clickable { onRespond(r.userId, true) }.padding(horizontal = 12.dp, vertical = 6.dp)) {
+                            Text("قبول", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        Box(Modifier.clip(RoundedCornerShape(6.dp)).border(1.dp, Color(0xFFBBBBBB), RoundedCornerShape(6.dp)).clickable { onRespond(r.userId, false) }.padding(horizontal = 12.dp, vertical = 6.dp)) {
+                            Text("تجاهل", color = Color(0xFF888888), fontSize = 12.sp)
+                        }
+                    }
+                    HorizontalDivider(color = BcInputBorder)
+                }
+            }
         }
     }
 }
@@ -313,6 +409,9 @@ private fun PrivateChatDialog(socket: ChatSocket, target: ChatUser, onDismiss: (
                 Icon(Icons.Default.Email, null, tint = Color.White, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("خاص مع ${target.name}", color = Color.White, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.weight(1f))
+                Icon(Icons.Default.PersonAdd, "إضافة صديق", tint = Color.White,
+                    modifier = Modifier.size(20.dp).clickable { socket.sendRequest(target.id) })
             }
             LazyColumn(Modifier.weight(1f).fillMaxWidth().background(BcChatBackground).padding(8.dp)) {
                 items(thread) { m -> Text("${m.senderName}: ${m.text}", color = Color(0xFF333333), fontSize = 13.sp, modifier = Modifier.padding(vertical = 3.dp)) }
