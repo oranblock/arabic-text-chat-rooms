@@ -73,7 +73,12 @@ dependencies {
     // Image Loading
     implementation(libs.coil.compose)
     implementation(libs.coil.svg)
+    implementation(libs.coil.gif)
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
+
+    // Push (dormant until google-services.json + plugin are added)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
 }

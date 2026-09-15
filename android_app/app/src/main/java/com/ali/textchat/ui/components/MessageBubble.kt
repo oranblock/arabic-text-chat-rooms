@@ -27,6 +27,9 @@ import com.ali.textchat.model.UserRank
 import com.ali.textchat.ui.theme.*
 import com.ali.textchat.ui.util.colorForName
 import com.ali.textchat.ui.util.svgCapableLoader
+import com.ali.textchat.ui.util.Emoticons
+import com.ali.textchat.ui.util.gifCapableLoader
+import androidx.compose.foundation.layout.FlowRow
 
 /** One BoomChat "chatbox" skin: bubble fill, text color, avatar border color. */
 private data class Skin(val fill: Brush, val text: Color, val border: Color)
@@ -126,12 +129,36 @@ fun MessageBubble(
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 )
             } else {
-                Text(
+                EmoticonText(
                     text = if (message.isGhost) message.text + "  (وضع الشبح)" else message.text,
-                    color = skin.text,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    lineHeight = 20.sp
+                    color = skin.text
+                )
+            }
+        }
+    }
+}
+
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun EmoticonText(text: String, color: Color) {
+    val context = LocalContext.current
+    val known = remember { Emoticons.codes(context).toSet() }
+    if (known.isEmpty() || !text.contains(':')) {
+        Text(text, color = color, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        return
+    }
+    val loader = remember { gifCapableLoader(context) }
+    val tokens = remember(text) { Emoticons.tokenize(text, known) }
+    FlowRow(verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center) {
+        tokens.forEach { tk ->
+            when (tk) {
+                is Emoticons.Token.Text -> Text(tk.value, color = color, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                is Emoticons.Token.Emoticon -> AsyncImage(
+                    model = Emoticons.assetUri(tk.code),
+                    imageLoader = loader,
+                    contentDescription = tk.code,
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }

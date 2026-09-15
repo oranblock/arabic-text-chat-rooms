@@ -172,6 +172,11 @@ class ChatSocket(
         })
     }
 
+    /** Registers the FCM token so the server can push private messages/broadcasts offline. */
+    fun registerPush(fcmToken: String) {
+        socket?.emit("register_push", JSONObject().apply { put("pushToken", fcmToken) })
+    }
+
     fun syncYoutube(videoId: String, statusValue: String) =
         socket?.emit("sync_youtube", JSONObject().apply { put("videoId", videoId); put("status", statusValue) })
 

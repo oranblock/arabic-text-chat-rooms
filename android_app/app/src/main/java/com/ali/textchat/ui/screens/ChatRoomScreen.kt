@@ -132,7 +132,7 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
             }
 
             Box(Modifier.fillMaxWidth().height(2.dp).background(BcAccent))
-            if (showEmoji) EmojiGrid { input += it }
+            if (showEmoji) EmojiAndEmoticonPicker(onEmoji = { input += it }, onEmoticon = { input += " :$it: " })
 
             Row(
                 modifier = Modifier.fillMaxWidth().background(Color.White).navigationBarsPadding().imePadding()
@@ -184,10 +184,27 @@ private fun HeadOption(icon: ImageVector, count: Int, onClick: () -> Unit) {
 }
 
 @Composable
-private fun EmojiGrid(onPick: (String) -> Unit) {
-    val emojis = listOf("😀","😂","😍","😎","😭","😅","🤣","😊","😘","🥰","😔","😢","👍","👏","🙏","💪","🔥","❤️","💔","💯","🌹","🎉","✨","⭐","😡","🤔","😴","🤯","🥳","😇","🙈","💎","👑","🇮🇶","🎵","☕")
-    LazyVerticalGrid(GridCells.Fixed(8), modifier = Modifier.fillMaxWidth().heightIn(max = 170.dp).background(Color.White).padding(6.dp)) {
-        items(emojis.size) { i -> Text(emojis[i], fontSize = 22.sp, modifier = Modifier.padding(4.dp).clickable { onPick(emojis[i]) }) }
+private fun EmojiAndEmoticonPicker(onEmoji: (String) -> Unit, onEmoticon: (String) -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val codes = remember { com.ali.textchat.ui.util.Emoticons.codes(context) }
+    val loader = remember { com.ali.textchat.ui.util.gifCapableLoader(context) }
+    Column(Modifier.fillMaxWidth().background(Color.White)) {
+        if (codes.isNotEmpty()) {
+            androidx.compose.foundation.lazy.LazyRow(Modifier.fillMaxWidth().padding(6.dp)) {
+                items(codes.size) { i ->
+                    coil.compose.AsyncImage(
+                        model = com.ali.textchat.ui.util.Emoticons.assetUri(codes[i]),
+                        imageLoader = loader, contentDescription = codes[i],
+                        modifier = Modifier.padding(4.dp).size(34.dp).clickable { onEmoticon(codes[i]) }
+                    )
+                }
+            }
+            Box(Modifier.fillMaxWidth().height(1.dp).background(BcInputBorder))
+        }
+        val emojis = listOf("😀","😂","😍","😎","😭","😅","🤣","😊","😘","🥰","😔","😢","👍","👏","🙏","💪","🔥","❤️","💔","💯","🌹","🎉","✨","⭐","😡","🤔","😴","🤯","🥳","😇","🙈","💎","👑","🇮🇶","🎵","☕")
+        LazyVerticalGrid(GridCells.Fixed(8), modifier = Modifier.fillMaxWidth().heightIn(max = 150.dp).padding(6.dp)) {
+            items(emojis.size) { i -> Text(emojis[i], fontSize = 22.sp, modifier = Modifier.padding(4.dp).clickable { onEmoji(emojis[i]) }) }
+        }
     }
 }
 

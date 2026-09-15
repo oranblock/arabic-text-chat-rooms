@@ -1,0 +1,19 @@
+[Unit]
+Description=Iraqi Chat Realtime Server (Socket.io)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/alichat/server
+EnvironmentFile=/opt/alichat/server/.env
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=3
+User=alichat
+Group=alichat
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

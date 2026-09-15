@@ -1,8 +1,13 @@
 package com.ali.textchat
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
@@ -11,12 +16,22 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import com.ali.textchat.data.ChatSocket
 import com.ali.textchat.data.DeviceId
+import com.ali.textchat.data.Push
 import com.ali.textchat.data.Session
 import com.ali.textchat.ui.screens.AuthScreen
 import com.ali.textchat.ui.screens.ChatRoomScreen
 import com.ali.textchat.ui.theme.ArabicTextChatTheme
 
 class MainActivity : ComponentActivity() {
+    private val notifPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* no-op; push still works foreground */ }
+
+    private fun requestNotifPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -37,6 +52,8 @@ class MainActivity : ComponentActivity() {
                                 Session.saveToken(context, socket.token)
                                 socket.joinRoom("iraq")
                                 socket.listRooms()
+                                requestNotifPermissionIfNeeded()
+                                Push.fetchToken(context) { fcm -> socket.registerPush(fcm) }
                                 loggedIn = true
                             } else authError = tokenOrError
                         }

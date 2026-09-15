@@ -13,6 +13,7 @@ const cors = require('cors');
 const store = require('./lib/store');
 const auth = require('./lib/auth');
 const filter = require('./lib/filter');
+const push = require('./lib/push');
 
 const app = express();
 app.use(cors());
@@ -61,6 +62,15 @@ function roomsSummary() {
     lockPublic: !!r.lockPublic, lockPrivate: !!r.lockPrivate,
     online: roomUsers(r.id).length
   }));
+}
+
+async function pushToUser(user, title, body, data) {
+  if (!push.enabled() || !user || !user.pushTokens || user.pushTokens.length === 0) return;
+  const { invalid } = await push.send(user.pushTokens, title, body, data || {});
+  if (invalid.length) {
+    user.pushTokens = user.pushTokens.filter(t => !invalid.includes(t));
+    store.flush();
+  }
 }
 
 function makeMessage(u, roomId, text, extra = {}) {
@@ -235,6 +245,7 @@ io.on('connection', (socket) => {
     store.pushPrivate(user.id, toUserId, msg);
     const tp = online.get(toUserId);
     if (tp) io.to(tp.socketId).emit('private_message', msg);
+    else pushToUser(target, `رسالة خاصة من ${user.name}`, clean.text, { type: 'private', fromUserId: user.id });
     socket.emit('private_message', msg);
     if (typeof cb === 'function') cb({ ok: true, message: msg });
   });
@@ -294,9 +305,16 @@ io.on('connection', (socket) => {
         io.to(room.id).emit('room_updated', { id: room.id, lockPublic: !!room.lockPublic, lockPrivate: !!room.lockPrivate });
         break;
       }
-      case 'broadcast':
-        io.emit('broadcast', { text: String(payload.text || '').slice(0, 300), by: me.name, at: now() });
+      case 'broadcast': {
+        const text = String(payload.text || '').slice(0, 300);
+        io.emit('broadcast', { text, by: me.name, at: now() });
+        if (push.enabled()) {
+          for (const u of Object.values(store.state.users)) {
+            if (!online.has(u.id) && u.pushTokens && u.pushTokens.length) pushToUser(u, 'إشعار عام', text, { type: 'broadcast' });
+          }
+        }
         break;
+      }
       default: return fail(cb, 'إجراء غير معروف');
     }
     store.flush();
@@ -334,6 +352,14 @@ io.on('connection', (socket) => {
     const p = online.get(user.id);
     if (p) io.to(p.roomId).emit('user_updated', { user: publicUser(user) });
     if (typeof cb === 'function') cb({ ok: true, user: publicUser(user) });
+  });
+
+  socket.on('register_push', ({ pushToken } = {}, cb) => {
+    const user = currentUser();
+    if (!user || typeof pushToken !== 'string' || pushToken.length < 10) { if (typeof cb === 'function') cb({ ok: false }); return; }
+    user.pushTokens = user.pushTokens || [];
+    if (!user.pushTokens.includes(pushToken)) { user.pushTokens.push(pushToken); store.flush(); }
+    if (typeof cb === 'function') cb({ ok: true });
   });
 
   socket.on('sync_youtube', ({ videoId, status } = {}) => {
