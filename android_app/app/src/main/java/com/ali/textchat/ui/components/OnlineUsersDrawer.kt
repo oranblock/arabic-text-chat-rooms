@@ -26,6 +26,9 @@ import com.ali.textchat.model.ChatUser
 import com.ali.textchat.model.UserRank
 import com.ali.textchat.ui.theme.*
 import com.ali.textchat.ui.util.colorForName
+import com.ali.textchat.ui.util.svgCapableLoader
+import coil.compose.AsyncImage
+import androidx.compose.ui.platform.LocalContext
 
 /** Right panel of iqchat: panel bar (friends / rooms / close) and grouped member list. */
 @Composable
@@ -92,7 +95,13 @@ private fun UserItem(user: ChatUser, onClick: (ChatUser) -> Unit, offline: Boole
         Box(
             Modifier.size(34.dp).clip(RoundedCornerShape(18)).background(Color(colorForName(user.name))),
             contentAlignment = Alignment.Center
-        ) { Text(user.name.trim().take(1), color = Color.White, fontWeight = FontWeight.Bold) }
+        ) {
+            Text(user.name.trim().take(1), color = Color.White, fontWeight = FontWeight.Bold)
+            if (user.avatarUrl.isNotBlank()) {
+                AsyncImage(model = user.avatarUrl, imageLoader = svgCapableLoader(LocalContext.current),
+                    contentDescription = null, modifier = Modifier.fillMaxSize())
+            }
+        }
         Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f)) {
             Text(user.name, color = Color(0xFF535353), fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)

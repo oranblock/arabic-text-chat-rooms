@@ -42,6 +42,7 @@ data class ChatRoom(
     val id: String,
     val title: String,
     val description: String,
+    val topic: String = "",
     val onlineCount: Int = 0,
     val isLocked: Boolean = false,
     val currentYoutubeUrl: String? = null

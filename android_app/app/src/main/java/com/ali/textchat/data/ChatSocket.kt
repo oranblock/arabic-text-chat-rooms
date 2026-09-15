@@ -130,7 +130,7 @@ class ChatSocket(
             val o = res.firstOrNull() as? JSONObject ?: return@Ack
             if (!o.optBoolean("ok")) { _errors.value = o.optString("error"); return@Ack }
             o.optJSONObject("room")?.let { r ->
-                _room.value = ChatRoom(r.optString("id"), r.optString("title"), r.optString("topic"), isLocked = r.optBoolean("lockPublic"))
+                _room.value = ChatRoom(id = r.optString("id"), title = r.optString("title"), description = "", topic = r.optString("topic"), isLocked = r.optBoolean("lockPublic"))
             }
             o.optJSONObject("me")?.let { _me.value = parseUser(it) }
             o.optJSONArray("messages")?.let { _messages.value = parseMessages(it) }
@@ -214,7 +214,7 @@ class ChatSocket(
         val o = a.getJSONObject(it)
         ChatRoom(
             id = o.optString("id"), title = o.optString("title"), description = o.optString("description"),
-            onlineCount = o.optInt("online"), isLocked = o.optBoolean("lockPublic")
+            topic = o.optString("topic"), onlineCount = o.optInt("online"), isLocked = o.optBoolean("lockPublic")
         )
     }
 }

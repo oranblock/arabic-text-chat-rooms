@@ -108,9 +108,19 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
                 HeadOption(Icons.Default.People, users.size) { scope.launch { drawerState.open() } }
             }
 
+            room?.topic?.takeIf { it.isNotBlank() }?.let { t ->
+                Row(
+                    Modifier.fillMaxWidth().background(Color(0xFFD9F2E6)).padding(horizontal = 12.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Campaign, null, tint = Color(0xFF0D261A), modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(t, color = Color(0xFF0D261A), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
+                }
+            }
             Column(Modifier.weight(1f).fillMaxWidth().background(BcChatBackground)) {
                 if (ytVisible && !ytId.isNullOrBlank()) {
-                    YouTubeInChatPlayer(videoTitle = "▶ يوتيوب مشترك في الغرفة", onClose = { ytVisible = false })
+                    YouTubeInChatPlayer(videoId = ytId ?: "", videoTitle = "يوتيوب مشترك في الغرفة", onClose = { ytVisible = false })
                 }
                 if (error != null) {
                     Text(error!!, color = Color(0xFFA94442), fontSize = 12.sp,
@@ -154,8 +164,8 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
 
     if (showRooms) RoomsDialog(rooms, room?.id, onPick = { socket.joinRoom(it); showRooms = false }, onDismiss = { showRooms = false })
     if (showProfile) me?.let { u ->
-        ProfileDialog(u, onDismiss = { showProfile = false }) { color, status ->
-            socket.updateProfile(color, null, status) { _, _ -> }; showProfile = false
+        ProfileDialog(u, onDismiss = { showProfile = false }) { color, avatar, status ->
+            socket.updateProfile(color, avatar, status) { _, _ -> }; showProfile = false
         }
     }
     modTarget?.let { t -> ModerationDialog(t, onDismiss = { modTarget = null }) { action -> socket.moderate(action, t.id); modTarget = null } }
@@ -209,14 +219,32 @@ private fun RoomsDialog(rooms: List<ChatRoom>, currentId: String?, onPick: (Stri
 }
 
 @Composable
-private fun ProfileDialog(me: ChatUser, onDismiss: () -> Unit, onSave: (color: String?, status: String?) -> Unit) {
+private fun ProfileDialog(me: ChatUser, onDismiss: () -> Unit, onSave: (color: String?, avatar: String?, status: String?) -> Unit) {
     val colors = listOf("#D31027", "#7929FF", "#03ADD8", "#28C76F", "#CC9835", "#CE34E9", "#2196F3", "#FF9800")
+    val avatarSeeds = listOf("Iraq", "Baghdad", "Basra", "Najaf", "Karbala", "Mosul", "Kufa", "Anbar")
     var picked by remember { mutableStateOf(me.customHexColor) }
+    var avatar by remember { mutableStateOf(me.avatarUrl.ifBlank { null }) }
     val vip = me.rank == UserRank.VIP_DIAMOND || me.rank == UserRank.MODERATOR || me.rank == UserRank.OWNER
+    val loader = com.ali.textchat.ui.util.svgCapableLoader(androidx.compose.ui.platform.LocalContext.current)
     Dialog(onDismiss) {
         Column(Modifier.clip(RoundedCornerShape(14.dp)).background(Color.White).padding(16.dp).fillMaxWidth(0.9f), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(me.name, color = BcAccent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Text("${me.rank.badge} ${me.rank.titleAr}", color = Color(0xFF666666), fontSize = 12.sp)
+            Spacer(Modifier.height(14.dp))
+            Text("اختر صورتك", color = Color(0xFF444444), fontSize = 13.sp)
+            Spacer(Modifier.height(8.dp))
+            androidx.compose.foundation.lazy.LazyRow {
+                items(avatarSeeds.size) { i ->
+                    val url = "https://api.dicebear.com/7.x/bottts/png?seed=${avatarSeeds[i]}"
+                    Box(
+                        Modifier.padding(4.dp).size(48.dp).clip(RoundedCornerShape(12.dp))
+                            .border(if (avatar == url) 3.dp else 1.dp, if (avatar == url) BcAccent else BcInputBorder, RoundedCornerShape(12.dp))
+                            .clickable { avatar = url }
+                    ) {
+                        coil.compose.AsyncImage(model = url, imageLoader = loader, contentDescription = null, modifier = Modifier.fillMaxSize())
+                    }
+                }
+            }
             Spacer(Modifier.height(14.dp))
             Text(if (vip) "اختر لون اسمك" else "تغيير اللون للأعضاء المميزين", color = Color(0xFF444444), fontSize = 13.sp)
             Spacer(Modifier.height(8.dp))
@@ -232,7 +260,7 @@ private fun ProfileDialog(me: ChatUser, onDismiss: () -> Unit, onSave: (color: S
             }
             Spacer(Modifier.height(16.dp))
             Box(Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(6.dp)).background(BcAccent)
-                .clickable { onSave(if (vip) picked else null, "online") }, contentAlignment = Alignment.Center) {
+                .clickable { onSave(if (vip) picked else null, avatar, "online") }, contentAlignment = Alignment.Center) {
                 Text("حفظ", color = Color.White, fontWeight = FontWeight.Bold)
             }
         }
