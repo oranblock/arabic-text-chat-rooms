@@ -32,41 +32,41 @@ case "$FLOW" in
       home
     done
     ;;
-  *)  # smoke: launch, enter chat, exercise in-chat features, screenshot, rotate
+    adb shell pm grant "$PACKAGE" android.permission.POST_NOTIFICATIONS 2>/dev/null || true
     main="$(echo "$ACTIVITIES" | awk '{print $1}')"
     launch_activity "$main"
     assert_running || rc=1
-    shot "auth-screen"
+    shot "01-auth-screen"
 
     # Tap Guest Login (x=540, y=1625 on 1080x2340 Pixel 5) to enter chat room
     send_step "tap guest login to enter chat"
     tap 540 1625
     sleep 4
-    shot "chatroom-features"
+    shot "02-chatroom-main"
 
     # Tap a message in the chat list to trigger Quick-Mention
     send_step "tap message for quick mention"
-    tap 500 750
+    tap 600 240
     sleep 1
-    shot "quick-mention"
+    shot "03-quick-mention"
 
-    # Tap Online Users Drawer button (top right: x=1010, y=140)
+    # Tap Online Users Drawer button (in RTL top bar: x=70, y=90)
     send_step "open online users drawer"
-    tap 1010 140
+    tap 70 90
     sleep 2
-    shot "online-drawer-search"
+    shot "04-online-drawer-search"
     back
 
-    # Tap Profile button (x=880, y=140)
+    # Tap Profile button (in RTL top bar: x=175, y=90)
     send_step "open profile dialog"
-    tap 880 140
+    tap 175 90
     sleep 2
-    shot "profile-vip-palette"
+    shot "05-profile-vip-palette"
     back
 
-    home;            shot "home"
-    launch_activity "$main"; shot "resume"
-    rotate_report;   shot "after-rotate"
+    home;            shot "06-home"
+    launch_activity "$main"; shot "07-resume"
+    rotate_report;   shot "08-after-rotate"
     ;;
 esac
 
