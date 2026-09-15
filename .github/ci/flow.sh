@@ -32,11 +32,38 @@ case "$FLOW" in
       home
     done
     ;;
-  *)  # smoke: launch, prove alive, screenshot, background/resume, rotate
+  *)  # smoke: launch, enter chat, exercise in-chat features, screenshot, rotate
     main="$(echo "$ACTIVITIES" | awk '{print $1}')"
     launch_activity "$main"
     assert_running || rc=1
-    shot "launch"
+    shot "auth-screen"
+
+    # Tap Guest Login (x=540, y=1625 on 1080x2340 Pixel 5) to enter chat room
+    send_step "tap guest login to enter chat"
+    tap 540 1625
+    sleep 4
+    shot "chatroom-features"
+
+    # Tap a message in the chat list to trigger Quick-Mention
+    send_step "tap message for quick mention"
+    tap 500 750
+    sleep 1
+    shot "quick-mention"
+
+    # Tap Online Users Drawer button (top right: x=1010, y=140)
+    send_step "open online users drawer"
+    tap 1010 140
+    sleep 2
+    shot "online-drawer-search"
+    back
+
+    # Tap Profile button (x=880, y=140)
+    send_step "open profile dialog"
+    tap 880 140
+    sleep 2
+    shot "profile-vip-palette"
+    back
+
     home;            shot "home"
     launch_activity "$main"; shot "resume"
     rotate_report;   shot "after-rotate"
