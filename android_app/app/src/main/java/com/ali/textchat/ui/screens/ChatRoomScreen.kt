@@ -53,6 +53,7 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
     val rooms by socket.rooms.collectAsState()
     val error by socket.errors.collectAsState()
     val ytId by socket.youtubeId.collectAsState()
+    val ytTitle by socket.youtubeTitle.collectAsState()
     val notifications by socket.notifications.collectAsState()
     val threads by socket.threads.collectAsState()
     val requests by socket.requests.collectAsState()
@@ -63,7 +64,7 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
     var showProfile by remember { mutableStateOf(false) }
     var modTarget by remember { mutableStateOf<ChatUser?>(null) }
     var privTarget by remember { mutableStateOf<ChatUser?>(null) }
-    var ytVisible by remember { mutableStateOf(false) }
+    var ytVisible by remember { mutableStateOf(true) }
     var showNotifs by remember { mutableStateOf(false) }
     var showInbox by remember { mutableStateOf(false) }
     var showRequests by remember { mutableStateOf(false) }
@@ -119,17 +120,33 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
 
             room?.topic?.takeIf { it.isNotBlank() }?.let { t ->
                 Row(
-                    Modifier.fillMaxWidth().background(Color(0xFFDCE6FF)).padding(horizontal = 12.dp, vertical = 5.dp),
+                    Modifier.fillMaxWidth().background(Color(0xFFDCE6FF)).padding(horizontal = 12.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(Icons.Default.Campaign, null, tint = Color(0xFF0A1E4D), modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text(t, color = Color(0xFF0A1E4D), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
+                    Text(t, color = Color(0xFF0A1E4D), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.weight(1f))
+                    if (!ytId.isNullOrBlank()) {
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(if (ytVisible) Color(0xFFE50914) else Color(0xFF1E293B))
+                                .clickable { ytVisible = !ytVisible }
+                                .padding(horizontal = 6.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(if (ytVisible) "📺 إخفاء" else "▶ يوتيوب", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
             Column(Modifier.weight(1f).fillMaxWidth().background(BcChatBackground)) {
                 if (ytVisible && !ytId.isNullOrBlank()) {
-                    YouTubeInChatPlayer(videoId = ytId ?: "", videoTitle = "يوتيوب مشترك في الغرفة", onClose = { ytVisible = false })
+                    YouTubeInChatPlayer(
+                        videoId = ytId ?: "",
+                        videoTitle = ytTitle ?: "يوتيوب مشترك في الغرفة",
+                        onClose = { ytVisible = false }
+                    )
                 }
                 if (error != null) {
                     Text(error!!, color = Color(0xFFA94442), fontSize = 12.sp,

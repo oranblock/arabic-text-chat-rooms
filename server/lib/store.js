@@ -12,11 +12,11 @@ const HISTORY_PER_ROOM = 200;
 const HISTORY_PRIVATE = 200;
 
 const DEFAULT_ROOMS = [
-  { id: 'iraq', title: 'ديوانية العراق', description: 'الغرفة العامة الرئيسية', topic: 'هلا بيكم بديوانية العراق 🇮🇶 احترموا بعض' },
+  { id: 'iraq', title: 'ديوانية العراق', description: 'الغرفة العامة الرئيسية', topic: 'هلا بيكم بديوانية العراق 🇮🇶 احترموا بعض', youtubeId: 'jfKfPfyJRdk', youtubeTitle: 'موسيقى هادئة - ديوانية العراق 🎵' },
   { id: 'baghdad', title: 'روم بغداد', description: 'سوالف أهل بغداد', topic: '' },
   { id: 'basra', title: 'روم البصرة', description: 'أهل البصرة والجنوب', topic: '' },
   { id: 'games', title: 'مسابقات ست وداد', description: 'مسابقات وألغاز يومية', topic: 'رتب الحروف واربح نقاط 🏆' },
-  { id: 'songs', title: 'شيلات وأغاني', description: 'يوتيوب وأغاني عراقية', topic: '' }
+  { id: 'songs', title: 'شيلات وأغاني', description: 'يوتيوب وأغاني عراقية', topic: '', youtubeId: 'jfKfPfyJRdk', youtubeTitle: 'أغاني وشيلات عراقية 🎶' }
 ];
 
 function emptyState() {
@@ -39,7 +39,12 @@ try {
     const loaded = JSON.parse(fs.readFileSync(FILE, 'utf8'));
     state = { ...emptyState(), ...loaded };
     for (const r of DEFAULT_ROOMS) {
-      if (!state.rooms[r.id]) state.rooms[r.id] = { ...r, lockPublic: false, lockPrivate: false };
+      if (!state.rooms[r.id]) {
+        state.rooms[r.id] = { ...r, lockPublic: false, lockPrivate: false };
+      } else if (!state.rooms[r.id].youtubeId && r.youtubeId) {
+        state.rooms[r.id].youtubeId = r.youtubeId;
+        state.rooms[r.id].youtubeTitle = r.youtubeTitle;
+      }
     }
   }
 } catch (e) {

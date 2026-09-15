@@ -179,7 +179,15 @@ io.on('connection', (socket) => {
     if (typeof cb === 'function') {
       cb({
         ok: true,
-        room: { id: room.id, title: room.title, topic: room.topic || '', lockPublic: !!room.lockPublic, lockPrivate: !!room.lockPrivate },
+        room: {
+          id: room.id,
+          title: room.title,
+          topic: room.topic || '',
+          lockPublic: !!room.lockPublic,
+          lockPrivate: !!room.lockPrivate,
+          youtubeId: room.youtubeId || '',
+          youtubeTitle: room.youtubeTitle || ''
+        },
         me: publicUser(user),
         messages: history,
         users: roomUsers(room.id)
@@ -229,7 +237,12 @@ io.on('connection', (socket) => {
     io.to(room.id).emit('new_message', msg);
 
     const yt = filter.youtubeId(clean.text);
-    if (yt) io.to(room.id).emit('youtube_updated', { videoId: yt, status: 'play', by: user.name });
+    if (yt) {
+      room.youtubeId = yt;
+      room.youtubeTitle = 'فيديو من ' + user.name;
+      store.save();
+      io.to(room.id).emit('youtube_updated', { videoId: yt, videoTitle: room.youtubeTitle, status: 'play', by: user.name });
+    }
   });
 
   socket.on('private_send', ({ toUserId, text } = {}, cb) => {
@@ -426,11 +439,23 @@ io.on('connection', (socket) => {
     if (typeof cb === 'function') cb({ ok: true });
   });
 
-  socket.on('sync_youtube', ({ videoId, status } = {}) => {
+  socket.on('sync_youtube', ({ videoId, videoTitle, status } = {}, cb) => {
     const user = currentUser();
     const p = user && online.get(user.id);
-    if (!p) return;
-    socket.to(p.roomId).emit('youtube_updated', { videoId, status, by: user.name });
+    if (!p) { if (typeof cb === 'function') cb({ ok: false }); return; }
+    const room = store.state.rooms[p.roomId];
+    if (room && videoId) {
+      room.youtubeId = videoId;
+      if (videoTitle) room.youtubeTitle = videoTitle;
+      store.save();
+    }
+    io.to(p.roomId).emit('youtube_updated', {
+      videoId,
+      videoTitle: videoTitle || room?.youtubeTitle || 'يوتيوب مشترك',
+      status: status || 'play',
+      by: user.name
+    });
+    if (typeof cb === 'function') cb({ ok: true });
   });
 
   socket.on('disconnect', () => {

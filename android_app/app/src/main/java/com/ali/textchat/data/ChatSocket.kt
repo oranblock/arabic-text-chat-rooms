@@ -44,8 +44,10 @@ class ChatSocket(
     val room: StateFlow<ChatRoom?> = _room
     private val _privates = MutableStateFlow<List<ChatMessage>>(emptyList())
     val privates: StateFlow<List<ChatMessage>> = _privates
-    private val _youtubeId = MutableStateFlow<String?>(null)
+    private val _youtubeId = MutableStateFlow<String?>("jfKfPfyJRdk")
     val youtubeId: StateFlow<String?> = _youtubeId
+    private val _youtubeTitle = MutableStateFlow<String?>("موسيقى هادئة - ديوانية العراق 🎵")
+    val youtubeTitle: StateFlow<String?> = _youtubeTitle
     private val _notifications = MutableStateFlow<List<String>>(emptyList())
     val notifications: StateFlow<List<String>> = _notifications
     private val _threads = MutableStateFlow<List<PmThread>>(emptyList())
@@ -104,7 +106,14 @@ class ChatSocket(
                 _errors.value = "📢 ${it.optString("by")}: ${it.optString("text")}"
                 notify("📢 ${it.optString("by")}: ${it.optString("text")}")
             } }
-            s.on("youtube_updated") { a -> (a.firstOrNull() as? JSONObject)?.let { _youtubeId.value = it.optString("videoId") } }
+            s.on("youtube_updated") { a ->
+                (a.firstOrNull() as? JSONObject)?.let { obj ->
+                    val vId = obj.optString("videoId")
+                    if (vId.isNotBlank()) _youtubeId.value = vId
+                    val vTitle = obj.optString("videoTitle")
+                    if (vTitle.isNotBlank()) _youtubeTitle.value = vTitle
+                }
+            }
             s.on("force_disconnect") { a ->
                 _status.value = Status.BANNED
                 _errors.value = (a.firstOrNull() as? JSONObject)?.optString("reason") ?: "تم فصلك من قبل الإدارة"
@@ -150,6 +159,10 @@ class ChatSocket(
             if (!o.optBoolean("ok")) { _errors.value = o.optString("error"); return@Ack }
             o.optJSONObject("room")?.let { r ->
                 _room.value = ChatRoom(id = r.optString("id"), title = r.optString("title"), description = "", topic = r.optString("topic"), isLocked = r.optBoolean("lockPublic"))
+                val yId = r.optString("youtubeId")
+                if (yId.isNotBlank()) _youtubeId.value = yId
+                val yTitle = r.optString("youtubeTitle")
+                if (yTitle.isNotBlank()) _youtubeTitle.value = yTitle
             }
             o.optJSONObject("me")?.let { _me.value = parseUser(it) }
             o.optJSONArray("messages")?.let { _messages.value = parseMessages(it) }

@@ -44,9 +44,15 @@ const check = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name); 
 
   const jOwner = await rpc(owner, 'join_room', { token: rOwner.token, roomId: 'iraq' });
   check('owner joins + gets history', jOwner.ok && Array.isArray(jOwner.messages));
+  check('owner joins gets youtubeId', jOwner.room && jOwner.room.youtubeId === 'jfKfPfyJRdk');
   const jMember = await rpc(member, 'join_room', { token: rMember.token, roomId: 'iraq' });
   const jSpam = await rpc(spammer, 'join_room', { token: rSpam.token, roomId: 'iraq' });
   check('member + spammer join', jMember.ok && jSpam.ok);
+
+  const ytPromise = new Promise(resolve => member.once('youtube_updated', resolve));
+  await rpc(owner, 'sync_youtube', { videoId: 'NEW_VID_123', videoTitle: 'أغنية جديدة' });
+  const ytEvent = await Promise.race([ytPromise, wait(1500).then(() => null)]);
+  check('sync_youtube broadcasts to room members', ytEvent && ytEvent.videoId === 'NEW_VID_123');
 
   member.emit('send_message', { text: 'مرحبا انا جديد' });
   await wait(300);
@@ -72,6 +78,7 @@ const check = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name); 
   member.emit('send_message', { text: 'رسالة سريعة' });
   await wait(500);
   check('anti-spam limits burst to <=1', (memberMsgs.length - before) <= 1);
+  await rpc(owner, 'mod_action', { action: 'unmute', targetUserId: rMember.user.id });
 
   await rpc(owner, 'mod_action', { action: 'unmute', targetUserId: rSpam.user.id });
   await rpc(owner, 'mod_action', { action: 'ghost', targetUserId: rSpam.user.id });
