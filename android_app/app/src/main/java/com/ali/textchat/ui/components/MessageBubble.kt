@@ -91,6 +91,7 @@ fun MessageBubble(
             modifier = Modifier
                 .weight(1f, fill = false)
                 .clip(RoundedCornerShape(6.dp))
+                .clickable { onUserMention(message.senderName) }
                 .background(skin.fill)
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
