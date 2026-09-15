@@ -5,12 +5,19 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -18,13 +25,23 @@ import coil.compose.AsyncImage
 import com.ali.textchat.model.ChatMessage
 import com.ali.textchat.model.UserRank
 import com.ali.textchat.ui.theme.*
+import com.ali.textchat.ui.util.colorForName
+import com.ali.textchat.ui.util.svgCapableLoader
+
+/** One BoomChat "chatbox" skin: bubble fill, text color, avatar border color. */
+private data class Skin(val fill: Brush, val text: Color, val border: Color)
+
+private fun skinFor(rank: UserRank): Skin = when (rank) {
+    UserRank.OWNER -> Skin(Brush.horizontalGradient(listOf(BcGoldC, BcGoldB, BcGoldA)), Color(0xFF3A3A3A), BcGoldA)
+    UserRank.MODERATOR -> Skin(Brush.horizontalGradient(listOf(BcVioletB, BcVioletA)), Color(0xFFFFE7E7), BcVioletA)
+    UserRank.VIP_DIAMOND -> Skin(Brush.horizontalGradient(listOf(BcSkinPurple, BcSkinPurple)), Color.White, BcSkinPurple)
+    UserRank.REGULAR -> Skin(Brush.horizontalGradient(listOf(BcSkinDark, BcSkinDark)), Color.White, Color(0xFF333333))
+    UserRank.BOT -> Skin(Brush.horizontalGradient(listOf(BcMyText, BcMyText)), BcText, Color(0xFFDDDDDD))
+}
 
 /**
- * فقاعة الرسالة المصممة خصيصاً وفق متطلبات العميل:
- * 1. أفاتار مربع بزوايا منحنية (42dp × 42dp مع 10dp corner radius)
- * 2. التوقيت أقصى اليسار بخط صغير رمادي
- * 3. رتب وألوان مخصصة
- * 4. النقر السريع على الاسم أو الصورة لنسخ الاسم في حقل الكتابة
+ * Message row styled like iqchat.top (BoomChat Yellow theme). The screen runs right-to-left,
+ * so the avatar sits on the right and the time with its clock sits on the left, as on the site.
  */
 @Composable
 fun MessageBubble(
@@ -32,97 +49,88 @@ fun MessageBubble(
     onUserMention: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val nameColor = when {
-        message.customHexColor != null -> try {
-            Color(android.graphics.Color.parseColor(message.customHexColor))
-        } catch (e: Exception) {
-            RegularUserText
-        }
-        message.senderRank == UserRank.OWNER -> OwnerGold
-        message.senderRank == UserRank.MODERATOR -> ModeratorSilver
-        message.senderRank == UserRank.VIP_DIAMOND -> DiamondCyan
-        else -> RegularUserText
-    }
+    val context = LocalContext.current
+    val loader = remember { svgCapableLoader(context) }
+    val skin = skinFor(message.senderRank)
+    val avatarShape = RoundedCornerShape(18)
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.Start,
+            .padding(start = 6.dp, end = 10.dp, top = 5.dp, bottom = 5.dp),
         verticalAlignment = Alignment.Top
     ) {
-        // Rounded Square Avatar (42dp x 42dp, 10dp radius)
+        // Avatar with the skin-colored 2px border (".chatbox-*-text-border")
         Box(
             modifier = Modifier
-                .size(42.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(Color.LightGray)
-                .clickable { onUserMention(message.senderName) }
+                .size(46.dp)
+                .border(2.dp, skin.border, avatarShape)
+                .padding(2.dp)
+                .clip(avatarShape)
+                .background(Color(colorForName(message.senderName)))
+                .clickable { onUserMention(message.senderName) },
+            contentAlignment = Alignment.Center
         ) {
-            AsyncImage(
-                model = message.senderAvatar,
-                contentDescription = message.senderName,
-                modifier = Modifier.fillMaxSize()
-            )
+            Text(message.senderName.trim().take(1), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            if (message.senderAvatar.isNotBlank()) {
+                AsyncImage(
+                    model = message.senderAvatar,
+                    imageLoader = loader,
+                    contentDescription = message.senderName,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(Modifier.width(8.dp))
 
-        // Message Card Body
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = if (message.isGhost) GhostBubbleBackground else MessageBubbleBackground,
-            border = androidx.compose.foundation.BorderStroke(
-                width = 1.dp,
-                color = if (message.isGhost) GhostBorder else BubbleBorder
-            ),
-            modifier = Modifier.weight(1f)
+        Column(
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .clip(RoundedCornerShape(6.dp))
+                .background(skin.fill)
+                .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                // Header: Sender Name, Badge, and Left-Aligned Timestamp
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable { onUserMention(message.senderName) }
-                    ) {
-                        Text(
-                            text = "${message.senderRank.badge} ${message.senderName}",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            color = nameColor
-                        )
-                        if (message.isGhost) {
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "(وضع الشبح)",
-                                fontSize = 10.sp,
-                                color = Color(0xFF9333EA),
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-
-                    // Left-Aligned Timestamp (HH:mm)
-                    Text(
-                        text = message.timestamp,
-                        fontSize = 10.sp,
-                        color = Color.Gray
-                    )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = message.senderName,
+                    color = skin.text,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    modifier = Modifier.clickable { onUserMention(message.senderName) }
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(message.senderRank.badge, fontSize = 11.sp)   // .chat_rank icon
+                Spacer(Modifier.width(24.dp))
+                Spacer(Modifier.weight(1f, fill = false))
+                Icon(Icons.Default.Schedule, contentDescription = null, tint = if (message.senderRank == UserRank.BOT) BcTime else skin.text.copy(alpha = 0.75f), modifier = Modifier.size(11.dp))
+                Spacer(Modifier.width(3.dp))
+                Text(message.timestamp, color = if (message.senderRank == UserRank.BOT) BcTime else skin.text.copy(alpha = 0.85f), fontSize = 11.sp)
+                if (message.senderRank != UserRank.BOT) {
+                    Spacer(Modifier.width(6.dp))
+                    Icon(Icons.Default.Block, contentDescription = "حظر", tint = skin.text.copy(alpha = 0.6f), modifier = Modifier.size(11.dp))
                 }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Message Text Body
+            }
+            Spacer(Modifier.height(4.dp))
+            if (message.senderRank == UserRank.BOT) {
+                // Quiz bot lines are shown as colored pills (cyan / purple) like the site's quizbot.
+                val pill = if (message.text.contains("تلميح")) Color(0xFFA100E8) else Color(0xFF00B4D8)
                 Text(
                     text = message.text,
+                    color = Color.White,
                     fontSize = 14.sp,
-                    color = RegularUserText,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(pill)
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            } else {
+                Text(
+                    text = if (message.isGhost) message.text + "  (وضع الشبح)" else message.text,
+                    color = skin.text,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
                     lineHeight = 20.sp
                 )
             }

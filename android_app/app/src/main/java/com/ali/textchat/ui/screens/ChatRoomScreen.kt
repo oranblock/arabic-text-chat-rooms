@@ -1,260 +1,287 @@
 package com.ali.textchat.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.ali.textchat.model.*
-import com.ali.textchat.ui.components.*
+import com.ali.textchat.data.ChatSocket
+import com.ali.textchat.model.ChatRoom
+import com.ali.textchat.model.ChatUser
+import com.ali.textchat.model.UserRank
+import com.ali.textchat.ui.components.MessageBubble
+import com.ali.textchat.ui.components.OnlineUsersDrawer
+import com.ali.textchat.ui.components.YouTubeInChatPlayer
 import com.ali.textchat.ui.theme.*
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+private fun isStaff(rank: UserRank?) = rank == UserRank.OWNER || rank == UserRank.MODERATOR
+
 @Composable
-fun ChatRoomScreen(
-    currentRoom: ChatRoom,
-    currentUser: ChatUser,
-    onSwitchRoom: () -> Unit,
-    onOpenProfile: () -> Unit,
-    onOpenPrivateMessages: () -> Unit
-) {
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
     val scope = rememberCoroutineScope()
-    var inputMessageText by remember { mutableStateOf("") }
-    var isYtPlayerVisible by remember { mutableStateOf(true) }
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
 
-    // Mock initial messages conforming to client specifications
-    var messages by remember {
-        mutableStateOf(
-            listOf(
-                ChatMessage(
-                    id = "m1",
-                    roomId = currentRoom.id,
-                    senderId = "u_owner",
-                    senderName = "علي (المالك)",
-                    senderAvatar = "https://api.dicebear.com/7.x/bottts/svg?seed=AdminAli",
-                    senderRank = UserRank.OWNER,
-                    text = "أهلاً وسهلاً بجميع الإخوة الكرام في الغرفة، نرجو الالتزام بقواعد الشات والاحترام المتبادل 🌹",
-                    timestamp = "14:32"
-                ),
-                ChatMessage(
-                    id = "m2",
-                    roomId = currentRoom.id,
-                    senderId = "u_mod",
-                    senderName = "سامي (مشرف عام)",
-                    senderAvatar = "https://api.dicebear.com/7.x/bottts/svg?seed=ModSami",
-                    senderRank = UserRank.MODERATOR,
-                    text = "تذكير: الرسائل المتكررة والإعلانات تُعرّض صاحبها لكتم فوري وحظر العتاد Hardware Ban 🔒",
-                    timestamp = "14:34"
-                ),
-                ChatMessage(
-                    id = "m3",
-                    roomId = currentRoom.id,
-                    senderId = "u_vip",
-                    senderName = "فهد التميمي",
-                    senderAvatar = "https://api.dicebear.com/7.x/bottts/svg?seed=FahadVIP",
-                    senderRank = UserRank.VIP_DIAMOND,
-                    customHexColor = "#059669",
-                    text = "مساء الخير للجميع، كيف الصوت واليوتيوب عندكم اليوم؟",
-                    timestamp = "14:36"
-                )
-            )
-        )
-    }
+    val me by socket.me.collectAsState()
+    val room by socket.room.collectAsState()
+    val messages by socket.messages.collectAsState()
+    val users by socket.users.collectAsState()
+    val rooms by socket.rooms.collectAsState()
+    val error by socket.errors.collectAsState()
+    val ytId by socket.youtubeId.collectAsState()
 
-    val onlineUsers = remember {
-        listOf(
-            ChatUser(id = "u_owner", name = "علي (المالك)", avatarUrl = "https://api.dicebear.com/7.x/bottts/svg?seed=AdminAli", rank = UserRank.OWNER, deviceId = "hw_1"),
-            ChatUser(id = "u_mod", name = "سامي (مشرف)", avatarUrl = "https://api.dicebear.com/7.x/bottts/svg?seed=ModSami", rank = UserRank.MODERATOR, deviceId = "hw_2"),
-            ChatUser(id = "u_vip", name = "فهد التميمي", avatarUrl = "https://api.dicebear.com/7.x/bottts/svg?seed=FahadVIP", rank = UserRank.VIP_DIAMOND, deviceId = "hw_3"),
-            ChatUser(id = "u_reg", name = "خالد الحربي", avatarUrl = "https://api.dicebear.com/7.x/bottts/svg?seed=KhalidUser", rank = UserRank.REGULAR, deviceId = "hw_4")
-        )
-    }
+    var input by remember { mutableStateOf("") }
+    var showEmoji by remember { mutableStateOf(false) }
+    var showRooms by remember { mutableStateOf(false) }
+    var showProfile by remember { mutableStateOf(false) }
+    var modTarget by remember { mutableStateOf<ChatUser?>(null) }
+    var privTarget by remember { mutableStateOf<ChatUser?>(null) }
+    var ytVisible by remember { mutableStateOf(false) }
 
+    LaunchedEffect(ytId) { if (!ytId.isNullOrBlank()) ytVisible = true }
     val listState = rememberLazyListState()
+    LaunchedEffect(messages.size) { if (messages.isNotEmpty()) listState.scrollToItem(messages.size - 1) }
+    LaunchedEffect(error) { if (error != null) { kotlinx.coroutines.delay(3500); socket.clearError() } }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
             OnlineUsersDrawer(
-                users = onlineUsers,
-                onUserClick = { user ->
-                    // Quick mention from drawer
-                    inputMessageText = "@${user.name}: $inputMessageText"
+                users = users,
+                onUserClick = { u ->
+                    if (u.id != me?.id) {
+                        if (isStaff(me?.rank)) modTarget = u else { privTarget = u; socket.loadPrivateHistory(u.id) }
+                    }
                     scope.launch { drawerState.close() }
                 },
                 onClose = { scope.launch { drawerState.close() } }
             )
         }
     ) {
-        Scaffold(
-            topBar = {
-                // Requirement 1: Royal Blue Top Bar with 5 icons
-                TopAppBar(
-                    title = {
-                        Column {
-                            Text(
-                                text = currentRoom.title,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                            Text(
-                                text = "${onlineUsers.size} متصل الآن",
-                                fontSize = 11.sp,
-                                color = Color(0xFFBFDBFE)
-                            )
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(
-                                imageVector = Icons.Default.Menu,
-                                contentDescription = "قائمة المتصلين",
-                                tint = Color.White
-                            )
-                        }
-                    },
-                    actions = {
-                        // 1. Notifications
-                        IconButton(onClick = { }) {
-                            Icon(Icons.Default.Notifications, contentDescription = "التنبيهات", tint = Color.White)
-                        }
-                        // 2. Room Switcher
-                        IconButton(onClick = onSwitchRoom) {
-                            Icon(Icons.Default.ExitToApp, contentDescription = "الغرف", tint = Color.White)
-                        }
-                        // 3. Private Mail
-                        IconButton(onClick = onOpenPrivateMessages) {
-                            Icon(Icons.Default.Email, contentDescription = "الخاص", tint = Color.White)
-                        }
-                        // 4. Friend Requests
-                        IconButton(onClick = { }) {
-                            Icon(Icons.Default.Person, contentDescription = "الطلبات", tint = Color.White)
-                        }
-                        // 5. Profile
-                        IconButton(onClick = onOpenProfile) {
-                            Icon(Icons.Default.AccountCircle, contentDescription = "الملف الشخصي", tint = Color.White)
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = RoyalBluePrimary
-                    )
-                )
-            },
-            bottomBar = {
-                // Bottom Input Bar
-                Surface(
-                    color = Color.White,
-                    shadowElevation = 8.dp,
-                    modifier = Modifier.fillMaxWidth()
+        Column(Modifier.fillMaxSize().background(BcBody)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Brush.horizontalGradient(listOf(BcHeaderStart, BcHeaderEnd)))
+                    .statusBarsPadding()
+                    .height(54.dp)
+                    .padding(horizontal = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable { showRooms = true; socket.listRooms() }.padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = { inputMessageText += " 🌹 " }) {
-                            Icon(Icons.Default.Favorite, contentDescription = "إيموجي", tint = Color.Gray)
-                        }
-
-                        TextField(
-                            value = inputMessageText,
-                            onValueChange = { inputMessageText = it },
-                            placeholder = { Text("اكتب رسالتك هنا...", fontSize = 13.sp) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .heightIn(min = 46.dp),
-                            shape = RoundedCornerShape(24.dp),
-                            colors = TextFieldDefaults.colors(
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent,
-                                focusedContainerColor = Color(0xFFF1F5F9),
-                                unfocusedContainerColor = Color(0xFFF1F5F9)
-                            )
-                        )
-
-                        Spacer(modifier = Modifier.width(6.dp))
-
-                        IconButton(
-                            onClick = {
-                                if (inputMessageText.isNotBlank()) {
-                                    val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-                                    val newMsg = ChatMessage(
-                                        id = UUID.randomUUID().toString(),
-                                        roomId = currentRoom.id,
-                                        senderId = currentUser.id,
-                                        senderName = currentUser.name,
-                                        senderAvatar = currentUser.avatarUrl,
-                                        senderRank = currentUser.rank,
-                                        customHexColor = currentUser.customHexColor,
-                                        text = inputMessageText.trim(),
-                                        timestamp = time
-                                    )
-                                    messages = messages + newMsg
-                                    inputMessageText = ""
-                                    scope.launch {
-                                        listState.animateScrollToItem(messages.size - 1)
-                                    }
-                                }
-                            },
-                            modifier = Modifier
-                                .size(44.dp)
-                                .background(RoyalBluePrimary, CircleShape)
-                        ) {
-                            Icon(Icons.Default.Send, contentDescription = "إرسال", tint = Color.White, modifier = Modifier.size(20.dp))
-                        }
+                    Icon(Icons.Default.Home, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Column {
+                        Text("🇮🇶 " + (room?.title ?: "ديوانية العراق"), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text("${users.size} متصل", color = Color(0xFFE8FFE8), fontSize = 10.sp)
                     }
+                }
+                Spacer(Modifier.weight(1f))
+                HeadOption(Icons.Default.Logout, 0) { onLogout() }
+                HeadOption(Icons.Default.AccountCircle, 0) { showProfile = true }
+                HeadOption(Icons.Default.People, users.size) { scope.launch { drawerState.open() } }
+            }
+
+            Column(Modifier.weight(1f).fillMaxWidth().background(BcChatBackground)) {
+                if (ytVisible && !ytId.isNullOrBlank()) {
+                    YouTubeInChatPlayer(videoTitle = "▶ يوتيوب مشترك في الغرفة", onClose = { ytVisible = false })
+                }
+                if (error != null) {
+                    Text(error!!, color = Color(0xFFA94442), fontSize = 12.sp,
+                        modifier = Modifier.fillMaxWidth().background(Color(0xFFF2DEDE)).padding(8.dp))
+                }
+                LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 6.dp)) {
+                    items(messages) { msg -> MessageBubble(message = msg, onUserMention = { name -> input = "@$name: $input" }) }
                 }
             }
-        ) { innerPadding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .background(ChatBackground)
+
+            Box(Modifier.fillMaxWidth().height(2.dp).background(BcAccent))
+            if (showEmoji) EmojiGrid { input += it }
+
+            Row(
+                modifier = Modifier.fillMaxWidth().background(Color.White).navigationBarsPadding().imePadding()
+                    .padding(horizontal = 6.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // In-Chat Floating YouTube Player (Requirement 6)
-                if (isYtPlayerVisible) {
-                    YouTubeInChatPlayer(
-                        videoTitle = "شيلات & موسيقى ديوانية العرب Live 🎵",
-                        onClose = { isYtPlayerVisible = false }
+                IconButton(onClick = { showEmoji = !showEmoji }, modifier = Modifier.size(38.dp)) {
+                    Icon(Icons.Default.SentimentSatisfied, "إيموجي", tint = BcAccent)
+                }
+                Box(
+                    modifier = Modifier.weight(1f).height(40.dp).background(BcInputFill, RoundedCornerShape(3.dp))
+                        .border(1.dp, BcInputBorder, RoundedCornerShape(3.dp)).padding(horizontal = 10.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    if (input.isEmpty()) Text("اكتب رسالتك...", color = Color(0xFF9E9E9E), fontSize = 14.sp)
+                    BasicTextField(input, { input = it }, singleLine = true,
+                        textStyle = TextStyle(color = Color(0xFF181818), fontSize = 14.sp), modifier = Modifier.fillMaxWidth())
+                }
+                Spacer(Modifier.width(6.dp))
+                Box(
+                    modifier = Modifier.size(48.dp, 40.dp).background(BcAccent, RoundedCornerShape(3.dp)).clickable {
+                        if (input.isNotBlank()) { socket.sendMessage(input.trim()); input = "" }
+                    },
+                    contentAlignment = Alignment.Center
+                ) { Icon(Icons.AutoMirrored.Filled.Send, "إرسال", tint = Color.White, modifier = Modifier.size(20.dp)) }
+            }
+        }
+    }
+
+    if (showRooms) RoomsDialog(rooms, room?.id, onPick = { socket.joinRoom(it); showRooms = false }, onDismiss = { showRooms = false })
+    if (showProfile) me?.let { u ->
+        ProfileDialog(u, onDismiss = { showProfile = false }) { color, status ->
+            socket.updateProfile(color, null, status) { _, _ -> }; showProfile = false
+        }
+    }
+    modTarget?.let { t -> ModerationDialog(t, onDismiss = { modTarget = null }) { action -> socket.moderate(action, t.id); modTarget = null } }
+    privTarget?.let { t -> PrivateChatDialog(socket, t, onDismiss = { privTarget = null }) }
+}
+
+@Composable
+private fun HeadOption(icon: ImageVector, count: Int, onClick: () -> Unit) {
+    Box(Modifier.size(42.dp).clickable { onClick() }, contentAlignment = Alignment.Center) {
+        Icon(icon, null, tint = Color.White, modifier = Modifier.size(22.dp))
+        if (count > 0) Box(
+            Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 2.dp).size(16.dp).background(BcNotify, CircleShape),
+            contentAlignment = Alignment.Center
+        ) { Text(if (count > 99) "99" else "$count", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+    }
+}
+
+@Composable
+private fun EmojiGrid(onPick: (String) -> Unit) {
+    val emojis = listOf("😀","😂","😍","😎","😭","😅","🤣","😊","😘","🥰","😔","😢","👍","👏","🙏","💪","🔥","❤️","💔","💯","🌹","🎉","✨","⭐","😡","🤔","😴","🤯","🥳","😇","🙈","💎","👑","🇮🇶","🎵","☕")
+    LazyVerticalGrid(GridCells.Fixed(8), modifier = Modifier.fillMaxWidth().heightIn(max = 170.dp).background(Color.White).padding(6.dp)) {
+        items(emojis.size) { i -> Text(emojis[i], fontSize = 22.sp, modifier = Modifier.padding(4.dp).clickable { onPick(emojis[i]) }) }
+    }
+}
+
+@Composable
+private fun RoomsDialog(rooms: List<ChatRoom>, currentId: String?, onPick: (String) -> Unit, onDismiss: () -> Unit) {
+    Dialog(onDismiss) {
+        Column(Modifier.clip(RoundedCornerShape(14.dp)).background(Color.White).padding(14.dp).fillMaxWidth(0.9f)) {
+            Text("قائمة الرومات", color = BcAccent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(10.dp))
+            rooms.forEach { r ->
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(10.dp))
+                        .background(if (r.id == currentId) BcUserItemEnd else BcInputFill)
+                        .clickable { onPick(r.id) }.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Home, null, tint = BcAccent, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(r.title, color = Color(0xFF333333), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(r.description, color = Color(0xFF888888), fontSize = 11.sp)
+                    }
+                    Text("${r.onlineCount}", color = Color.White, fontSize = 11.sp,
+                        modifier = Modifier.background(BcHeaderEnd, RoundedCornerShape(10.dp)).padding(horizontal = 8.dp, vertical = 2.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileDialog(me: ChatUser, onDismiss: () -> Unit, onSave: (color: String?, status: String?) -> Unit) {
+    val colors = listOf("#D31027", "#7929FF", "#03ADD8", "#28C76F", "#CC9835", "#CE34E9", "#2196F3", "#FF9800")
+    var picked by remember { mutableStateOf(me.customHexColor) }
+    val vip = me.rank == UserRank.VIP_DIAMOND || me.rank == UserRank.MODERATOR || me.rank == UserRank.OWNER
+    Dialog(onDismiss) {
+        Column(Modifier.clip(RoundedCornerShape(14.dp)).background(Color.White).padding(16.dp).fillMaxWidth(0.9f), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(me.name, color = BcAccent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text("${me.rank.badge} ${me.rank.titleAr}", color = Color(0xFF666666), fontSize = 12.sp)
+            Spacer(Modifier.height(14.dp))
+            Text(if (vip) "اختر لون اسمك" else "تغيير اللون للأعضاء المميزين", color = Color(0xFF444444), fontSize = 13.sp)
+            Spacer(Modifier.height(8.dp))
+            Row {
+                colors.forEach { c ->
+                    Box(
+                        Modifier.padding(4.dp).size(30.dp).clip(CircleShape)
+                            .background(Color(android.graphics.Color.parseColor(c)))
+                            .border(if (picked == c) 3.dp else 0.dp, Color.Black, CircleShape)
+                            .clickable(enabled = vip) { picked = c }
                     )
                 }
+            }
+            Spacer(Modifier.height(16.dp))
+            Box(Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(6.dp)).background(BcAccent)
+                .clickable { onSave(if (vip) picked else null, "online") }, contentAlignment = Alignment.Center) {
+                Text("حفظ", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
 
-                // Chat Messages List
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .weight(1f),
-                    contentPadding = PaddingValues(vertical = 8.dp)
-                ) {
-                    items(messages) { msg ->
-                        MessageBubble(
-                            message = msg,
-                            onUserMention = { targetUser ->
-                                // Quick Mention On-Tap (Requirement 4)
-                                inputMessageText = "@${targetUser}: $inputMessageText"
-                            }
-                        )
-                    }
+@Composable
+private fun ModerationDialog(target: ChatUser, onDismiss: () -> Unit, onAction: (String) -> Unit) {
+    val actions = listOf(
+        "mute" to "🔇 كتم", "unmute" to "🔊 فك الكتم / تفعيل", "ghost" to "👻 وضع الشبح",
+        "unghost" to "👁️ إلغاء الشبح", "kick" to "🚪 طرد", "ban_device" to "⛔ حظر الجهاز نهائياً"
+    )
+    Dialog(onDismiss) {
+        Column(Modifier.clip(RoundedCornerShape(14.dp)).background(Color.White).padding(14.dp).fillMaxWidth(0.85f)) {
+            Text("إدارة: ${target.name}", color = BcAccent, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(10.dp))
+            actions.forEach { (a, label) ->
+                Text(label, color = Color(0xFF333333), fontSize = 15.sp,
+                    modifier = Modifier.fillMaxWidth().clickable { onAction(a) }.padding(vertical = 10.dp))
+                HorizontalDivider(color = BcInputBorder)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PrivateChatDialog(socket: ChatSocket, target: ChatUser, onDismiss: () -> Unit) {
+    val thread by socket.privates.collectAsState()
+    var text by remember { mutableStateOf("") }
+    Dialog(onDismiss) {
+        Column(Modifier.clip(RoundedCornerShape(14.dp)).background(Color.White).fillMaxWidth(0.92f).heightIn(max = 480.dp)) {
+            Row(Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(BcHeaderStart, BcHeaderEnd))).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Email, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("خاص مع ${target.name}", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+            LazyColumn(Modifier.weight(1f).fillMaxWidth().background(BcChatBackground).padding(8.dp)) {
+                items(thread) { m -> Text("${m.senderName}: ${m.text}", color = Color(0xFF333333), fontSize = 13.sp, modifier = Modifier.padding(vertical = 3.dp)) }
+            }
+            Row(Modifier.fillMaxWidth().background(Color.White).padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f).height(40.dp).background(BcInputFill, RoundedCornerShape(3.dp)).padding(horizontal = 10.dp), contentAlignment = Alignment.CenterStart) {
+                    if (text.isEmpty()) Text("رسالة خاصة...", color = Color(0xFF9E9E9E), fontSize = 13.sp)
+                    BasicTextField(text, { text = it }, singleLine = true, textStyle = TextStyle(color = Color(0xFF181818), fontSize = 14.sp), modifier = Modifier.fillMaxWidth())
+                }
+                Spacer(Modifier.width(6.dp))
+                Box(Modifier.size(46.dp, 40.dp).background(BcAccent, RoundedCornerShape(3.dp)).clickable {
+                    if (text.isNotBlank()) { socket.sendPrivate(target.id, text.trim()); text = "" }
+                }, contentAlignment = Alignment.Center) {
+                    Icon(Icons.AutoMirrored.Filled.Send, "إرسال", tint = Color.White, modifier = Modifier.size(18.dp))
                 }
             }
         }

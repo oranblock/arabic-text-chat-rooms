@@ -4,10 +4,11 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class UserRank(val titleAr: String, val badge: String) {
-    OWNER("المالك", "👑"),
+    OWNER("صاحب التطبيق", "👑"),
     MODERATOR("مشرف عام", "🛡️"),
-    VIP_DIAMOND("عضو ماسي", "💎"),
-    REGULAR("عضو", "👤")
+    VIP_DIAMOND("عضو مميز", "💎"),
+    REGULAR("عضو متفاعل", "👤"),
+    BOT("بوت", "🤖")
 }
 
 @Serializable
