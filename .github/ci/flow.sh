@@ -32,6 +32,7 @@ case "$FLOW" in
       home
     done
     ;;
+  *)
     adb shell pm grant "$PACKAGE" android.permission.POST_NOTIFICATIONS 2>/dev/null || true
     main="$(echo "$ACTIVITIES" | awk '{print $1}')"
     launch_activity "$main"
