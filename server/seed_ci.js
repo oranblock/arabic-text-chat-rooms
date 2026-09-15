@@ -48,7 +48,6 @@ const rpc = (s, e, p) => new Promise(r => s.timeout(4000).emit(e, p, (err, res) 
     await wait(150);
   }
   await wait(500);
-  console.log('seeded demo room with all ranks, youtube, and active users');
-  // keep sockets connected for 10 minutes in background so they stay online
-  setTimeout(() => process.exit(0), 600000);
+  console.log('seeded demo room with all ranks, youtube, and messages');
+  process.exit(0);
 })();
