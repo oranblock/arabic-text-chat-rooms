@@ -10,9 +10,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,10 +42,12 @@ fun OnlineUsersDrawer(
     onUserClick: (ChatUser) -> Unit,
     onClose: () -> Unit
 ) {
-    val interactive = users.filter { it.rank == UserRank.REGULAR && !it.isMuted }
-    val premium = users.filter { it.rank == UserRank.VIP_DIAMOND || it.rank == UserRank.OWNER || it.rank == UserRank.MODERATOR }
-    val bots = users.filter { it.rank == UserRank.BOT }
-    val muted = users.filter { it.isMuted }
+    var query by remember { mutableStateOf("") }
+    val shown = users.filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }
+    val interactive = shown.filter { it.rank == UserRank.REGULAR && !it.isMuted }
+    val premium = shown.filter { it.rank == UserRank.VIP_DIAMOND || it.rank == UserRank.OWNER || it.rank == UserRank.MODERATOR }
+    val bots = shown.filter { it.rank == UserRank.BOT }
+    val muted = shown.filter { it.isMuted }
 
     ModalDrawerSheet(drawerContainerColor = Color.White, modifier = Modifier.width(300.dp)) {
         Row(
@@ -51,6 +58,25 @@ fun OnlineUsersDrawer(
             IconButton(onClick = { }) { Icon(Icons.Default.Home, "قائمة الرومات", tint = BcAccent) }
             Spacer(Modifier.weight(1f))
             IconButton(onClick = onClose) { Icon(Icons.Default.Close, "إغلاق", tint = Color(0xFF666666)) }
+        }
+        Box(
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp).height(38.dp)
+                .background(BcInputFill, RoundedCornerShape(8.dp))
+                .border(1.dp, BcInputBorder, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Search, null, tint = Color(0xFF9E9E9E), modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Box(Modifier.weight(1f)) {
+                    if (query.isEmpty()) Text("ابحث عن عضو...", color = Color(0xFF9E9E9E), fontSize = 13.sp)
+                    androidx.compose.foundation.text.BasicTextField(
+                        value = query, onValueChange = { query = it }, singleLine = true,
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Color(0xFF181818), fontSize = 14.sp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
         }
         LazyColumn(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
             item { GroupHeader("الأعضاء المتفاعلين", interactive.size) }

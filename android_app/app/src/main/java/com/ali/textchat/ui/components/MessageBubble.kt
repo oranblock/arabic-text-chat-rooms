@@ -129,10 +129,9 @@ fun MessageBubble(
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 )
             } else {
-                EmoticonText(
-                    text = if (message.isGhost) message.text + "  (وضع الشبح)" else message.text,
-                    color = skin.text
-                )
+                // Ghost/shadowban is silent: the target sees their own message as normal,
+                // no marker, so they never realise they are muted for everyone else.
+                EmoticonText(text = message.text, color = skin.text)
             }
         }
     }

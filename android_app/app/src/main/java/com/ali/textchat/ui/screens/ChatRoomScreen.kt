@@ -99,7 +99,7 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
                     Spacer(Modifier.width(6.dp))
                     Column {
                         Text("🇮🇶 " + (room?.title ?: "ديوانية العراق"), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Text("${users.size} متصل", color = Color(0xFFE8FFE8), fontSize = 10.sp)
+                        Text("${users.size} متصل", color = Color(0xFFC7D8FF), fontSize = 10.sp)
                     }
                 }
                 Spacer(Modifier.weight(1f))
@@ -110,12 +110,12 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
 
             room?.topic?.takeIf { it.isNotBlank() }?.let { t ->
                 Row(
-                    Modifier.fillMaxWidth().background(Color(0xFFD9F2E6)).padding(horizontal = 12.dp, vertical = 5.dp),
+                    Modifier.fillMaxWidth().background(Color(0xFFDCE6FF)).padding(horizontal = 12.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Campaign, null, tint = Color(0xFF0D261A), modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Campaign, null, tint = Color(0xFF0A1E4D), modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text(t, color = Color(0xFF0D261A), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
+                    Text(t, color = Color(0xFF0A1E4D), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
                 }
             }
             Column(Modifier.weight(1f).fillMaxWidth().background(BcChatBackground)) {

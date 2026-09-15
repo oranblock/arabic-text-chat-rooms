@@ -220,7 +220,9 @@ io.on('connection', (socket) => {
 
     const msg = makeMessage(user, room.id, clean.text);
     if (user.isGhost) {
-      msg.isGhost = true;
+      // Silent shadowban: echo the sender's own message back looking fully delivered
+      // (never stored, never broadcast). The target must not know they are ghosted,
+      // so we send it plain — no isGhost flag — to keep them calm instead of raging.
       return socket.emit('new_message', msg);
     }
     store.pushMessage(room.id, msg);
