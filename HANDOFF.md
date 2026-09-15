@@ -146,11 +146,9 @@ gh run watch <run-id> --repo oranblock/ali-chat-runner
 Flows: `smoke` (launch, prove alive, background/resume, rotate) or `diagnose`
 (launch every activity, screenshot each).
 
-> **Open item:** the runner's `android-ci.yml` had an indexing issue on first
-> push (a minimal `ping.yml` indexes fine; the full file was being adjusted —
-> env-context removed from `with:`). Confirm `gh api
-> repos/oranblock/ali-chat-runner/actions/workflows` lists `android-ci.yml`
-> before relying on it; re-push if `total_count` stays 0.
+> **Verified:** The runner's `android-ci.yml` is active and verified green
+> (run `34951628062`). Both `build` (assembleDebug) and `emulator-test` (ephemeral
+> Node.js server + emulator boot + smoke flow + 4 screenshots) passed cleanly.
 
 The private repo also carries its own in-repo `android-ci.yml` for owner-only runs
 (uses the checked-out source directly, no token).
@@ -189,7 +187,7 @@ client_ali_text_chat/
 - [x] FCM push scaffolding (app + server, dormant until keys)
 - [x] GIF emoticons
 - [x] Private repo (source) + public CI runner (harness split)
-- [ ] Confirm runner `android-ci.yml` indexed, first green run + Telegram screenshots
+- [x] Runner `android-ci.yml` indexed, first green run passed (build + ephemeral server + emulator smoke + 4 screenshots)
 - [ ] Client: register Google Play Console ($25 one-time), pick VPS, add FCM keys
 - [ ] 60-day warranty support window (per README)
 
