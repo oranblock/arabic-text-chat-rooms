@@ -113,6 +113,32 @@
     .terminal-input-row input { flex: 1; font-family: monospace; }
 
     @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Tables never break the layout: scroll horizontally in their own box */
+    .table-wrap, .card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { min-width: 560px; }
+
+    /* Phone / tablet responsiveness */
+    @media (max-width: 768px) {
+      body { padding: 10px; }
+      .container { max-width: 100%; }
+      header { padding: 12px 14px; gap: 10px; }
+      .brand h1, .brand h2 { font-size: 18px; }
+      .stats-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+      .stat-card { padding: 12px; gap: 10px; }
+      .stat-icon { font-size: 24px; width: 40px; height: 40px; }
+      .rooms-grid { grid-template-columns: 1fr; }
+      .tabs { gap: 4px; }
+      .tab, .btn { font-size: 12px; padding: 8px 12px; }
+      .section-title { font-size: 16px; }
+      .search-box { max-width: 100%; }
+      .login-box { padding: 22px; }
+    }
+    @media (max-width: 420px) {
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .brand h1, .brand h2 { font-size: 16px; }
+      .admin-profile { gap: 8px; }
+    }
   </style>
 </head>
 <body>
