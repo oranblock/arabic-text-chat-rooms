@@ -80,7 +80,7 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
     var showProfile by remember { mutableStateOf(false) }
     var modTarget by remember { mutableStateOf<ChatUser?>(null) }
     var privTarget by remember { mutableStateOf<ChatUser?>(null) }
-    var ytVisible by remember { mutableStateOf(true) }
+    var ytVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(room?.id) {
         ytVisible = true
@@ -193,18 +193,22 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
                     Text(error!!, color = Color(0xFFA94442), fontSize = 12.sp,
                         modifier = Modifier.fillMaxWidth().background(Color(0xFFF2DEDE)).padding(8.dp))
                 }
-                LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = 6.dp, start = 4.dp, end = 64.dp)) {
+                LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 58.dp, bottom = 6.dp, start = 4.dp, end = 8.dp)) {
                     items(messages) { msg -> MessageBubble(message = msg, onUserMention = { name -> input = "@$name: $input" }) }
                 }
             }
-            // Floating magenta head buttons (left edge) + rooms pill (right), over the chat — exact iqchat.top
+            // Collapsible floating magenta head buttons (left edge) so they don't cover the
+            // chat; a small toggle opens/closes them. Rooms pill stays top-right.
             Column(Modifier.align(Alignment.TopEnd).padding(6.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
-                HeadOption(Icons.Default.AccountCircle, 0) { showAccount = true }
-                HeadOption(Icons.Default.Email, 0) { socket.loadThreads(); showInbox = true }
-                HeadOption(Icons.Default.Notifications, notifications.size) { showNotifs = true }
-                HeadOption(Icons.Default.Article, 0) { socket.loadThreads(); showInbox = true }
-                HeadOption(Icons.Default.PersonAdd, requests.size) { socket.loadRequests(); showRequests = true }
-                if (isStaff(me?.rank)) HeadOption(Icons.Default.Security, 0) { showAdminPanel = true }
+                RoundBtn(if (showMenu) Icons.Default.Close else Icons.Default.Menu, badge = if (showMenu) 0 else notifications.size + requests.size) { showMenu = !showMenu }
+                if (showMenu) {
+                    HeadOption(Icons.Default.AccountCircle, 0) { showAccount = true; showMenu = false }
+                    HeadOption(Icons.Default.Email, 0) { socket.loadThreads(); showInbox = true; showMenu = false }
+                    HeadOption(Icons.Default.Notifications, notifications.size) { showNotifs = true; showMenu = false }
+                    HeadOption(Icons.Default.Article, 0) { socket.loadThreads(); showInbox = true; showMenu = false }
+                    HeadOption(Icons.Default.PersonAdd, requests.size) { socket.loadRequests(); showRequests = true; showMenu = false }
+                    if (isStaff(me?.rank)) HeadOption(Icons.Default.Security, 0) { showAdminPanel = true; showMenu = false }
+                }
             }
             Box(Modifier.align(Alignment.TopStart).padding(6.dp)) {
                 HeadPill(Icons.Default.Home, "قائمة الرومات") { showRooms = true; socket.listRooms() }
