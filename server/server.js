@@ -36,7 +36,7 @@ const lastSent = new Map();     // userId -> { at, text }
 
 function publicUser(u) {
   return {
-    id: u.id, name: u.name, avatarUrl: u.avatarUrl || '', rank: u.rank,
+    id: u.id, name: u.displayName || u.name, loginName: u.name, avatarUrl: u.avatarUrl || '', rank: u.rank,
     customHexColor: u.customHexColor || null, country: u.country || 'العراق',
     bio: u.bio || '', age: u.age || null, gender: u.gender || '',
     isMuted: !!u.isMuted, isGhost: !!u.isGhost, status: u.status || 'online',
@@ -86,7 +86,7 @@ function makeMessage(u, roomId, text, extra = {}) {
     id: store.nextId('m'),
     roomId,
     senderId: u.id,
-    senderName: u.name,
+    senderName: u.displayName || u.name,
     senderAvatar: u.avatarUrl || '',
     senderRank: u.rank,
     senderGender: u.gender || '',
@@ -548,9 +548,23 @@ io.on('connection', (socket) => {
     if (typeof cb === 'function') cb({ ok: true });
   });
 
-  socket.on('update_profile', ({ customHexColor, avatarUrl, status, bio, age, gender, country } = {}, cb) => {
+  // Scoreboard / leaderboard of quiz points (burger-menu button).
+  socket.on('list_scores', (_p, cb) => {
+    const arr = [];
+    if (quizBot && quizBot.scores) {
+      for (const [uid, score] of quizBot.scores.entries()) {
+        const u = store.state.users[uid];
+        if (u) arr.push({ userId: uid, name: u.displayName || u.name, rank: u.rank, avatarUrl: u.avatarUrl || '', score });
+      }
+    }
+    arr.sort((a, b) => b.score - a.score);
+    if (typeof cb === 'function') cb({ ok: true, scores: arr.slice(0, 50) });
+  });
+
+  socket.on('update_profile', ({ customHexColor, avatarUrl, status, bio, age, gender, country, displayName } = {}, cb) => {
     const user = currentUser();
     if (!user) return fail(cb, 'سجل الدخول');
+    if (typeof displayName === 'string' && displayName.trim().length >= 2) user.displayName = displayName.trim().slice(0, 40);
     if (typeof avatarUrl === 'string') user.avatarUrl = avatarUrl.slice(0, 300);
     if (typeof status === 'string' && ['online', 'away', 'busy'].includes(status)) user.status = status;
     if (typeof bio === 'string') user.bio = bio.slice(0, 160);

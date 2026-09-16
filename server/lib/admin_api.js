@@ -283,7 +283,29 @@ function createAdminRouter({ store, auth, online, io, quizBot, publicUser, rooms
       activeQuestions: Object.fromEntries(
         Array.from(quizBot.activeQuestions.entries()).map(([rId, q]) => [rId, { q: q.q, botName: q.botName, askedAt: q.askedAt }])
       ),
-      autoRooms: Array.from(quizBot.autoRooms.keys())
+      roomBots: Object.fromEntries(quizBot.roomBots.entries()),
+      autoRooms: Array.from(quizBot.autoRooms.entries()).map(([rId, ms]) => ({ roomId: rId, intervalSec: Math.round(ms / 1000) }))
+    });
+  });
+
+  router.post('/bots/assign', requireStaff, (req, res) => {
+    const { roomId, botId, auto, autoSec } = req.body || {};
+    if (!roomId) return res.status(400).json({ ok: false, error: 'معرف الغرفة مطلوب' });
+
+    if (botId === 'none' || botId === '') {
+      quizBot.dismissBot(roomId, req.adminUser);
+    } else if (botId) {
+      quizBot.summonBot(roomId, botId, req.adminUser);
+      if (auto === true) {
+        quizBot.enableAuto(roomId, parseInt(autoSec, 10) || 60);
+      } else {
+        quizBot.disableAuto(roomId);
+      }
+    }
+    res.json({
+      ok: true,
+      roomBots: Object.fromEntries(quizBot.roomBots.entries()),
+      autoRooms: Array.from(quizBot.autoRooms.entries()).map(([rId, ms]) => ({ roomId: rId, intervalSec: Math.round(ms / 1000) }))
     });
   });
 

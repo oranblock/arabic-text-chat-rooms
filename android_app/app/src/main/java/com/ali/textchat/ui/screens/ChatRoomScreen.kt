@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -73,6 +74,7 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
     val notifications by socket.notifications.collectAsState()
     val threads by socket.threads.collectAsState()
     val requests by socket.requests.collectAsState()
+    val scores by socket.scores.collectAsState()
 
     var input by remember { mutableStateOf("") }
     var showEmoji by remember { mutableStateOf(false) }
@@ -95,6 +97,7 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
     var showPrivate by remember { mutableStateOf(false) }
     var showPassword by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showScores by remember { mutableStateOf(false) }
 
     LaunchedEffect(ytId) { if (!ytId.isNullOrBlank()) ytVisible = true }
     val listState = rememberLazyListState()
@@ -205,6 +208,7 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
                     HeadOption(Icons.Default.Notifications, notifications.size) { showNotifs = true; showMenu = false }
                     HeadOption(Icons.Default.Article, 0) { socket.loadThreads(); showInbox = true; showMenu = false }
                     HeadOption(Icons.Default.PersonAdd, requests.size) { socket.loadRequests(); showRequests = true; showMenu = false }
+                    HeadOption(Icons.Default.EmojiEvents, 0) { socket.loadScores(); showScores = true; showMenu = false }
                     if (isStaff(me?.rank)) HeadOption(Icons.Default.Security, 0) { showAdminPanel = true; showMenu = false }
                 }
             }
@@ -289,6 +293,7 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
     }, onDismiss = { showInbox = false })
     if (showRequests) RequestsDialog(requests,
         onRespond = { id, ok -> socket.respondRequest(id, ok) }, onDismiss = { showRequests = false })
+    if (showScores) ScoreboardDialog(scores, onDismiss = { showScores = false })
     if (showAdminPanel && isStaff(me?.rank)) {
         AdminPanelDialog(
             socket = socket,
@@ -307,6 +312,42 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
         )
     }
     privTarget?.let { t -> PrivateChatDialog(socket, t, onDismiss = { privTarget = null }) }
+}
+
+// Scoreboard / leaderboard of quiz points (burger-menu trophy button)
+@Composable
+private fun ScoreboardDialog(scores: List<PmThread>, onDismiss: () -> Unit) {
+    val loader = com.ali.textchat.ui.util.svgCapableLoader(androidx.compose.ui.platform.LocalContext.current)
+    Dialog(onDismiss) {
+        Column(Modifier.clip(RoundedCornerShape(10.dp)).background(Color.White).fillMaxWidth(0.94f).heightIn(max = 620.dp)) {
+            Box(Modifier.fillMaxWidth().background(BcAccent).padding(12.dp)) {
+                Icon(Icons.Default.Close, "إغلاق", tint = Color.White, modifier = Modifier.align(Alignment.TopEnd).size(24.dp).clickable { onDismiss() })
+                Row(Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.EmojiEvents, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("المتصدرون", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            if (scores.isEmpty()) Text("لا توجد نقاط بعد", color = Color(0xFF999999), fontSize = 13.sp, modifier = Modifier.padding(16.dp))
+            LazyColumn {
+                itemsIndexed(scores) { i, s ->
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(s.lastText, color = BcAccent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.weight(1f))
+                        Text(s.name, color = Color(0xFF333333), fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Spacer(Modifier.width(8.dp))
+                        Box(Modifier.size(40.dp).clip(CircleShape).background(Color(com.ali.textchat.ui.util.colorForName(s.name))), contentAlignment = Alignment.Center) {
+                            if (s.avatarUrl.isNotBlank()) coil.compose.AsyncImage(s.avatarUrl, null, imageLoader = loader, modifier = Modifier.fillMaxSize())
+                            else Text(s.name.take(1), color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text("${i + 1}", color = Color(0xFF999999), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
+                    HorizontalDivider(color = BcInputBorder)
+                }
+            }
+        }
+    }
 }
 
 // ---- Account panel (حساب) + settings menu, exact iqchat.top ----

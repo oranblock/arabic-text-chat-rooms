@@ -87,10 +87,10 @@ class MainActivity : ComponentActivity() {
                                     currentServerUrl = newUrl
                                 },
                                 onLogin = { n, p -> busy = true; authError = null; socket.login(n, p, null) { ok, r -> afterAuth(ok, r) } },
-                                onRegister = { n, p, age, gender, country, status ->
+                                onRegister = { n, p, displayName, age, gender, country, status ->
                                     busy = true; authError = null
                                     socket.register(n, p) { ok, r ->
-                                        if (ok) socket.updateProfile(null, null, status.ifBlank { null }, null, age.toIntOrNull(), gender, country.ifBlank { null }) { _, _ -> }
+                                        if (ok) socket.updateProfile(null, null, status.ifBlank { null }, null, age.toIntOrNull(), gender, country.ifBlank { null }, displayName.ifBlank { null }) { _, _ -> }
                                         afterAuth(ok, r)
                                     }
                                 },

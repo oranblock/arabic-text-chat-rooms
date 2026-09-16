@@ -60,6 +60,8 @@ class ChatSocket(
     val threads: StateFlow<List<PmThread>> = _threads
     private val _requests = MutableStateFlow<List<PmThread>>(emptyList())
     val requests: StateFlow<List<PmThread>> = _requests
+    private val _scores = MutableStateFlow<List<PmThread>>(emptyList())
+    val scores: StateFlow<List<PmThread>> = _scores
 
     private fun notify(line: String) { _notifications.value = (_notifications.value + line).takeLast(50) }
 
@@ -206,9 +208,11 @@ class ChatSocket(
         age: Int? = null,
         gender: String? = null,
         country: String? = null,
+        displayName: String? = null,
         onResult: (Boolean, String?) -> Unit
     ) {
         socket?.emit("update_profile", JSONObject().apply {
+            if (displayName != null) put("displayName", displayName)
             if (color != null) put("customHexColor", color)
             if (avatarUrl != null) put("avatarUrl", avatarUrl)
             if (statusValue != null) put("status", statusValue)
@@ -275,6 +279,21 @@ class ChatSocket(
     fun loadRequests() {
         socket?.emit("list_requests", JSONObject(), Ack { res ->
             (res.firstOrNull() as? JSONObject)?.optJSONArray("requests")?.let { _requests.value = parseThreads(it) }
+        })
+    }
+
+    fun loadScores() {
+        socket?.emit("list_scores", JSONObject(), Ack { res ->
+            (res.firstOrNull() as? JSONObject)?.optJSONArray("scores")?.let { a ->
+                _scores.value = (0 until a.length()).map {
+                    val o = a.getJSONObject(it)
+                    PmThread(
+                        userId = o.optString("userId"), name = o.optString("name"),
+                        rank = runCatching { UserRank.valueOf(o.optString("rank", "REGULAR")) }.getOrDefault(UserRank.REGULAR),
+                        avatarUrl = o.optString("avatarUrl"), lastText = o.optInt("score").toString()
+                    )
+                }
+            }
         })
     }
 

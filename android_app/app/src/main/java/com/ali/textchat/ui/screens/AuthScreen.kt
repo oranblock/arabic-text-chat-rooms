@@ -31,12 +31,13 @@ fun AuthScreen(
     serverUrl: String,
     onUpdateServerUrl: (String) -> Unit,
     onLogin: (name: String, password: String) -> Unit,
-    onRegister: (name: String, password: String, age: String, gender: String, country: String, status: String) -> Unit,
+    onRegister: (name: String, password: String, displayName: String, age: String, gender: String, country: String, status: String) -> Unit,
     onGuest: () -> Unit
 ) {
     var isRegister by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var displayName by remember { mutableStateOf("") }
     var age by remember { mutableStateOf("") }
     var gender by remember { mutableStateOf("male") }
     var country by remember { mutableStateOf("العراق") }
@@ -61,11 +62,13 @@ fun AuthScreen(
             Text("دردشة عراقية جماعية", color = Color(0xFF888888), fontSize = 13.sp)
             Spacer(Modifier.height(18.dp))
 
-            AuthField(name, "الاسم") { name = it }
+            AuthField(name, if (isRegister) "اسم الدخول" else "الاسم") { name = it }
             Spacer(Modifier.height(10.dp))
             AuthField(password, "الرمز السري", isPassword = true) { password = it }
 
             if (isRegister) {
+                Spacer(Modifier.height(10.dp))
+                AuthField(displayName, "الاسم الرمزي (يظهر بالشات)") { displayName = it }
                 Spacer(Modifier.height(10.dp))
                 AuthField(age, "العمر") { if (it.length <= 2 && it.all { c -> c.isDigit() }) age = it }
                 Spacer(Modifier.height(10.dp))
@@ -90,7 +93,7 @@ fun AuthScreen(
             Spacer(Modifier.height(16.dp))
             PrimaryButton(if (isRegister) "إنشاء حساب" else "تسجيل الدخول", busy) {
                 if (name.isNotBlank() && password.isNotBlank()) {
-                    if (isRegister) onRegister(name.trim(), password, age, gender, country.trim(), status.trim()) else onLogin(name.trim(), password)
+                    if (isRegister) onRegister(name.trim(), password, displayName.trim(), age, gender, country.trim(), status.trim()) else onLogin(name.trim(), password)
                 }
             }
             Spacer(Modifier.height(10.dp))
