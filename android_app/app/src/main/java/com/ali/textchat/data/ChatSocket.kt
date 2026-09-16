@@ -44,9 +44,9 @@ class ChatSocket(
     val room: StateFlow<ChatRoom?> = _room
     private val _privates = MutableStateFlow<List<ChatMessage>>(emptyList())
     val privates: StateFlow<List<ChatMessage>> = _privates
-    private val _youtubeId = MutableStateFlow<String?>("jfKfPfyJRdk")
+    private val _youtubeId = MutableStateFlow<String?>(null)
     val youtubeId: StateFlow<String?> = _youtubeId
-    private val _youtubeTitle = MutableStateFlow<String?>("موسيقى هادئة - ديوانية العراق 🎵")
+    private val _youtubeTitle = MutableStateFlow<String?>(null)
     val youtubeTitle: StateFlow<String?> = _youtubeTitle
     private val _youtubeOffset = MutableStateFlow<Int>(0)
     val youtubeOffset: StateFlow<Int> = _youtubeOffset
@@ -111,9 +111,9 @@ class ChatSocket(
             s.on("youtube_updated") { a ->
                 (a.firstOrNull() as? JSONObject)?.let { obj ->
                     val vId = obj.optString("videoId")
-                    if (vId.isNotBlank()) _youtubeId.value = vId
+                    _youtubeId.value = if (vId.isNotBlank()) vId else null
                     val vTitle = obj.optString("videoTitle")
-                    if (vTitle.isNotBlank()) _youtubeTitle.value = vTitle
+                    _youtubeTitle.value = if (vTitle.isNotBlank()) vTitle else null
                     _youtubeOffset.value = obj.optInt("offset", 0)
                 }
             }
@@ -163,9 +163,9 @@ class ChatSocket(
             o.optJSONObject("room")?.let { r ->
                 _room.value = ChatRoom(id = r.optString("id"), title = r.optString("title"), description = "", topic = r.optString("topic"), isLocked = r.optBoolean("lockPublic"))
                 val yId = r.optString("youtubeId")
-                if (yId.isNotBlank()) _youtubeId.value = yId
+                _youtubeId.value = if (yId.isNotBlank()) yId else null
                 val yTitle = r.optString("youtubeTitle")
-                if (yTitle.isNotBlank()) _youtubeTitle.value = yTitle
+                _youtubeTitle.value = if (yTitle.isNotBlank()) yTitle else null
                 _youtubeOffset.value = r.optInt("youtubeOffset", 0)
             }
             o.optJSONObject("me")?.let { _me.value = parseUser(it) }

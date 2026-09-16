@@ -45,6 +45,7 @@ private fun isStaff(rank: UserRank?) = rank == UserRank.OWNER || rank == UserRan
 
 @Composable
 fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
 
@@ -68,6 +69,10 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
     var modTarget by remember { mutableStateOf<ChatUser?>(null) }
     var privTarget by remember { mutableStateOf<ChatUser?>(null) }
     var ytVisible by remember { mutableStateOf(true) }
+
+    LaunchedEffect(room?.id) {
+        ytVisible = true
+    }
     var showNotifs by remember { mutableStateOf(false) }
     var showInbox by remember { mutableStateOf(false) }
     var showRequests by remember { mutableStateOf(false) }
@@ -201,7 +206,12 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
         }
     }
 
-    if (showRooms) RoomsDialog(rooms, room?.id, onPick = { socket.joinRoom(it); showRooms = false }, onDismiss = { showRooms = false })
+    if (showRooms) RoomsDialog(rooms, room?.id, onPick = {
+        socket.joinRoom(it)
+        com.ali.textchat.data.Session.saveLastRoom(context, it)
+        ytVisible = true
+        showRooms = false
+    }, onDismiss = { showRooms = false })
     if (showProfile) me?.let { u ->
         ProfileDialog(u, onLogout = { showProfile = false; onLogout() }, onDismiss = { showProfile = false }) { color, avatar, status, bio, age, gender, country ->
             socket.updateProfile(color, avatar, status, bio, age, gender, country) { _, _ -> }; showProfile = false

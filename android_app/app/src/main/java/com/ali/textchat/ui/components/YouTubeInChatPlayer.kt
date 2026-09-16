@@ -122,12 +122,14 @@ fun YouTubeInChatPlayer(
             }
         }
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(if (isMinimized) 0.dp else 220.dp)
-        ) {
-            if (videoId.isNotBlank()) {
+        // When minimized, do not render WebView to eliminate hardware acceleration surface smear
+        if (!isMinimized && videoId.isNotBlank()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+                    .background(Color.Black)
+            ) {
                 AndroidView(
                     modifier = Modifier.fillMaxSize(),
                     factory = { ctx ->
@@ -139,6 +141,7 @@ fun YouTubeInChatPlayer(
                             isClickable = true
                             isFocusable = true
                             isFocusableInTouchMode = true
+                            setBackgroundColor(android.graphics.Color.BLACK)
                             settings.apply {
                                 javaScriptEnabled = true
                                 domStorageEnabled = true
@@ -171,6 +174,13 @@ fun YouTubeInChatPlayer(
                             val remoteUrl = "${com.ali.textchat.data.AppConfig.defaultUrl()}/player/$videoId?start=$startSeconds"
                             web.loadUrl(remoteUrl)
                         }
+                    },
+                    onRelease = { web ->
+                        web.stopLoading()
+                        web.loadUrl("about:blank")
+                        web.clearHistory()
+                        web.removeAllViews()
+                        web.destroy()
                     }
                 )
             }

@@ -51,7 +51,8 @@ class MainActivity : ComponentActivity() {
                             busy = false
                             if (ok) {
                                 Session.saveToken(context, socket.token)
-                                socket.joinRoom("iraq")
+                                val last = Session.lastRoom(context)
+                                socket.joinRoom(last)
                                 socket.listRooms()
                                 requestNotifPermissionIfNeeded()
                                 Push.fetchToken(context) { fcm -> socket.registerPush(fcm) }
