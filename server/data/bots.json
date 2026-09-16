@@ -1,0 +1,360 @@
+{
+  "bots": [
+    {
+      "id": "bot_widad",
+      "name": "ست وداد 🤖",
+      "avatarUrl": "https://api.dicebear.com/7.x/bottts/png?seed=Widad",
+      "rank": "BOT",
+      "customHexColor": "#00E5FF",
+      "role": "trivia",
+      "greeting": "هلا والله بالحبايب! أني ست وداد ومعاكم للمسابقات الثقافية والمعلومات العامة 🇮🇶✨"
+    },
+    {
+      "id": "bot_scramble",
+      "name": "حزورة الكلمات 🎮",
+      "avatarUrl": "https://api.dicebear.com/7.x/bottts/png?seed=ScrambleWords",
+      "rank": "BOT",
+      "customHexColor": "#FF9800",
+      "role": "scramble",
+      "greeting": "يا هلا بأصحاب الذكاء! جاهزين لحل الكلمات المبعثرة والألغاز؟ ركزوا وجاوبوا بسرعة! 🧩🔥"
+    },
+    {
+      "id": "bot_abu_haider",
+      "name": "أبو حيدر المضياف ☕",
+      "avatarUrl": "https://api.dicebear.com/7.x/bottts/png?seed=AbuHaider",
+      "rank": "BOT",
+      "customHexColor": "#10B981",
+      "role": "proverbs",
+      "greeting": "منورين الديوان حبايب، استكان شاي مهيل وأحلى أمثال وسوالف بغدادية قديمة ☕🌹"
+    },
+    {
+      "id": "bot_deen",
+      "name": "قبسات إيمانية 🕌",
+      "avatarUrl": "https://api.dicebear.com/7.x/bottts/png?seed=Deen",
+      "rank": "BOT",
+      "customHexColor": "#8B5CF6",
+      "role": "religious",
+      "greeting": "السلام عليكم ورحمة الله وبركاته 🌙 أهلاً بكم في المسابقات المعرفية والدينية"
+    },
+    {
+      "id": "bot_shaer",
+      "name": "شاعر الديوان 📜",
+      "avatarUrl": "https://api.dicebear.com/7.x/bottts/png?seed=bot_shaer",
+      "rank": "BOT",
+      "customHexColor": "#E11D48",
+      "role": "poetry",
+      "greeting": "يا دار ما فعلت بك الأيام.. أهلاً بكم في واحة الشعر والأدب العراقي 🌹"
+    },
+    {
+      "id": "bot_food",
+      "name": "طباخ الديوان 🍲",
+      "avatarUrl": "https://api.dicebear.com/7.x/bottts/png?seed=bot_food",
+      "rank": "BOT",
+      "customHexColor": "#F59E0B",
+      "role": "cuisine",
+      "greeting": "ريحة الأكل تفتح النفس! جاهزين لمسابقة الأكلات العراقية؟ 🍲🔥"
+    },
+    {
+      "id": "bot_kora",
+      "name": "محلل الكورة ⚽",
+      "avatarUrl": "https://api.dicebear.com/7.x/bottts/png?seed=bot_kora",
+      "rank": "BOT",
+      "customHexColor": "#22C55E",
+      "role": "sport",
+      "greeting": "يا جمهور أسود الرافدين! أسئلة كرة عراقية وعالمية، ورونا شطارتكم ⚽🦁"
+    },
+    {
+      "id": "bot_songs",
+      "name": "بوت الشيلات 🎵",
+      "avatarUrl": "https://api.dicebear.com/7.x/bottts/png?seed=bot_songs",
+      "rank": "BOT",
+      "customHexColor": "#06B6D4",
+      "role": "music",
+      "greeting": "دگ الطبل واعزف! أسئلة عن الأغاني والفنانين العراقيين 🎵🎤"
+    },
+    {
+      "id": "bot_riddle",
+      "name": "أبو الألغاز 🧠",
+      "avatarUrl": "https://api.dicebear.com/7.x/bottts/png?seed=bot_riddle",
+      "rank": "BOT",
+      "customHexColor": "#A855F7",
+      "role": "riddle",
+      "greeting": "شغّلوا عقولكم! ألغاز وفوازير تحتاج ذكاء، منو أذكى واحد بالديوان؟ 🧠✨"
+    },
+    {
+      "id": "bot_math",
+      "name": "لغز الأرقام 🔢",
+      "avatarUrl": "https://api.dicebear.com/7.x/bottts/png?seed=bot_math",
+      "rank": "BOT",
+      "customHexColor": "#0EA5E9",
+      "role": "math",
+      "greeting": "الرياضيات متعة! جاوبوا بسرعة واجمعوا النقاط 🔢⚡"
+    }
+  ],
+  "questions": [
+    {
+      "category": "culture",
+      "q": "ما هي عاصمة العراق في عهد الدولة العباسية؟",
+      "a": "بغداد",
+      "points": 10
+    },
+    {
+      "category": "scramble",
+      "q": "رتب حروف الكلمة العراقية: (د - غ - ب - ا - د)",
+      "a": "بغداد",
+      "points": 10
+    },
+    {
+      "category": "geography",
+      "q": "نهر يمر في بغداد يقسمها إلى كرخ ورصافة؟",
+      "a": "دجلة",
+      "points": 10
+    },
+    {
+      "category": "geography",
+      "q": "ما هو اللقب الشهير لمدينة البصرة الفيحاء؟",
+      "a": "الفيحاء",
+      "points": 10
+    },
+    {
+      "category": "scramble",
+      "q": "رتب حروف اسم المحافظة: (ل - ي - ب - ب - ا - ر)",
+      "a": "اربيل",
+      "points": 10
+    },
+    {
+      "category": "geography",
+      "q": "أكبر محافظات العراق من حيث المساحة؟",
+      "a": "الانبار",
+      "points": 10
+    },
+    {
+      "category": "history",
+      "q": "في أي مدينة تقع المئذنة الملوية الشهيرة؟",
+      "a": "سامراء",
+      "points": 10
+    },
+    {
+      "category": "scramble",
+      "q": "رتب حروف الأكلة العراقية الشعبية: (د - ل - م - ة - و)",
+      "a": "دولمة",
+      "points": 10
+    },
+    {
+      "category": "geography",
+      "q": "ما هو اللقب الشعبي لمدينة الموصل؟",
+      "a": "أم الربيعين",
+      "points": 10
+    },
+    {
+      "category": "scramble",
+      "q": "رتب حروف النهر العظيم: (ف - ر - ا - ت)",
+      "a": "الفرات",
+      "points": 10
+    },
+    {
+      "category": "history",
+      "q": "ما اسم بوابة بابل التاريخية الشهيرة؟",
+      "a": "عشتار",
+      "points": 10
+    },
+    {
+      "category": "scramble",
+      "q": "رتب حروف السمك المشهور بالعراق: (م - ز - ك - و - ف)",
+      "a": "مزكوف",
+      "points": 10
+    },
+    {
+      "category": "proverbs",
+      "q": "أكمل المثل البغدادي: اللي ما يعرف يدبج يكول ...؟",
+      "a": "الكاع عوجة",
+      "points": 10
+    },
+    {
+      "category": "proverbs",
+      "q": "أكمل المثل: فرخ البط ...؟",
+      "a": "عوام",
+      "points": 10
+    },
+    {
+      "category": "proverbs",
+      "q": "أكمل المثل الشعبي: مداح نفسه ...؟",
+      "a": "ذميم",
+      "points": 10
+    },
+    {
+      "category": "culture",
+      "q": "ما هي الأكلة العراقية الصباحية الشهيرة المصنوعة من حليب الجاموس؟",
+      "a": "قيمر",
+      "points": 10
+    },
+    {
+      "category": "history",
+      "q": "من هو الشاعر العراقي الكبير الملقب بمالئ الدنيا وشاغل الناس؟",
+      "a": "المتنبي",
+      "points": 10
+    },
+    {
+      "category": "culture",
+      "q": "ما اسم الشارع الشهير في بغداد لبيع الكتب والمخطوطات؟",
+      "a": "المتنبي",
+      "points": 10
+    },
+    {
+      "category": "geography",
+      "q": "ما هي المسطحات المائية الطبيعية الفريدة في جنوب العراق؟",
+      "a": "الاهوار",
+      "points": 10
+    },
+    {
+      "category": "religious",
+      "q": "في أي مدينة عراقية يقع مرقد الإمام علي بن أبي طالب (ع)؟",
+      "a": "النجف",
+      "points": 10
+    },
+    {
+      "category": "religious",
+      "q": "في أي مدينة عراقية يقع مرقد الإمام الحسين (ع)؟",
+      "a": "كربلاء",
+      "points": 10
+    },
+    {
+      "category": "religious",
+      "q": "ما هي المدينة التي كانت عاصمة الخلافة للإمام علي (ع)؟",
+      "a": "الكوفة",
+      "points": 10
+    },
+    {
+      "category": "scramble",
+      "q": "رتب حروف الحلوى العراقية الشعبية بالأعياد: (ك - ل - ي - ج - ة)",
+      "a": "كليجة",
+      "points": 10
+    },
+    {
+      "category": "history",
+      "q": "ما اسم الحضارة القديمة التي اخترعت الكتابة المسمارية في جنوب العراق؟",
+      "a": "السومرية",
+      "points": 10
+    },
+    {
+      "category": "geography",
+      "q": "ما اسم الشط الذي يتكون من التقاء نهري دجلة والفرات؟",
+      "a": "شط العرب",
+      "points": 10
+    },
+    {
+      "category": "proverbs",
+      "q": "ما هو أطول جسر معلق في العراق؟",
+      "a": "جسر الكريعات",
+      "points": 15
+    },
+    {
+      "category": "poetry",
+      "q": "من القائل: صوت صفير البلبلِ هيج قلبي الثملِ؟",
+      "a": "الأصمعي",
+      "points": 20
+    },
+    {
+      "category": "cuisine",
+      "q": "ما اسم الأكلة العراقية المصنوعة من الرز والقيمة تُقدّم بالمناسبات؟",
+      "a": "قوزي",
+      "points": 10
+    },
+    {
+      "category": "cuisine",
+      "q": "أكلة عراقية شعبية من الباذنجان والطماطة والرز؟",
+      "a": "تشريب باذنجان",
+      "points": 10
+    },
+    {
+      "category": "cuisine",
+      "q": "رتب حروف الأكلة: (ت - ب - س - ي)",
+      "a": "تبسي",
+      "points": 10
+    },
+    {
+      "category": "cuisine",
+      "q": "الخبز العراقي الرقيق اللي ينخبز بالتنور؟",
+      "a": "صمون",
+      "points": 10
+    },
+    {
+      "category": "sport",
+      "q": "بأي سنة فاز منتخب العراق بكأس آسيا؟",
+      "a": "2007",
+      "points": 15
+    },
+    {
+      "category": "sport",
+      "q": "ما هو لقب المنتخب العراقي بكرة القدم؟",
+      "a": "أسود الرافدين",
+      "points": 10
+    },
+    {
+      "category": "sport",
+      "q": "أشهر ناديين بالعراق يلعبون ديربي بغداد هما الزوراء و...؟",
+      "a": "القوة الجوية",
+      "points": 10
+    },
+    {
+      "category": "sport",
+      "q": "من هو هداف العراق التاريخي الملقب بصاروخ آسيا؟",
+      "a": "حسين سعيد",
+      "points": 15
+    },
+    {
+      "category": "music",
+      "q": "من هو المطرب العراقي الراحل الملقب بقيصر الأغنية العراقية؟",
+      "a": "كاظم الساهر",
+      "points": 10
+    },
+    {
+      "category": "music",
+      "q": "الآلة الموسيقية الوترية المشهورة بالمقام العراقي؟",
+      "a": "الجوزة",
+      "points": 15
+    },
+    {
+      "category": "music",
+      "q": "فن غنائي عراقي أصيل مسجّل بالتراث العالمي لليونسكو؟",
+      "a": "المقام العراقي",
+      "points": 15
+    },
+    {
+      "category": "riddle",
+      "q": "شي يمشي بلا رجلين ويبچي بلا عيون، شنو هو؟",
+      "a": "الغيم",
+      "points": 15
+    },
+    {
+      "category": "riddle",
+      "q": "بيت بلا باب ولا شباك وساكنه أصفر، شنو هو؟",
+      "a": "البيضة",
+      "points": 15
+    },
+    {
+      "category": "riddle",
+      "q": "كلما أخذت منه كبر، شنو هو؟",
+      "a": "الحفرة",
+      "points": 15
+    },
+    {
+      "category": "math",
+      "q": "كم يساوي: 7 × 8 ؟",
+      "a": "56",
+      "points": 10
+    },
+    {
+      "category": "math",
+      "q": "عدد أضلاع المثلث + عدد أضلاع المربع = ؟",
+      "a": "7",
+      "points": 10
+    },
+    {
+      "category": "math",
+      "q": "نصف المئة زائد ربع المئة = ؟",
+      "a": "75",
+      "points": 10
+    }
+  ]
+}
