@@ -1041,8 +1041,22 @@ private fun ProfileDialog(
             Spacer(Modifier.height(12.dp))
 
             // VIP Color Picker (unlocked for VIP or demo testing)
-            Text(if (vip) "اختر لون اسمك (مميز)" else "لون الاسم للأعضاء المميزين", color = Color(0xFF444444), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(6.dp))
+            Text("اختر لون اسمك", color = Color(0xFF444444), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(8.dp))
+            // Color wheel (pick any color) + live preview of the current pick
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                com.ali.textchat.ui.components.ColorWheel(diameter = 150.dp) { hex -> picked = hex }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        Modifier.size(48.dp).clip(CircleShape)
+                            .background(picked?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() } ?: Color(0xFFECECEC))
+                            .border(1.dp, Color(0xFFBDBDBD), CircleShape)
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(picked ?: "—", color = Color(0xFF666666), fontSize = 11.sp)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
             Row {
                 colors.forEach { c ->
                     Box(
