@@ -597,7 +597,8 @@ private fun ProfileDialog(
     onDismiss: () -> Unit,
     onSave: (color: String?, avatar: String?, status: String?, bio: String?, age: Int?, gender: String?, country: String?) -> Unit
 ) {
-    val colors = listOf("#D31027", "#7929FF", "#03ADD8", "#28C76F", "#CC9835", "#CE34E9", "#2196F3", "#FF9800")
+    // Exact iqchat.top "chatbox" skin colors (css/custom.css)
+    val colors = listOf("#f3d5d5", "#e9f4d4", "#d5eef5", "#e9dcee", "#f3e6d4", "#fad5f6", "#ece9ff", "#FD62BE")
     val avatarSeeds = listOf("Iraq", "Baghdad", "Basra", "Najaf", "Karbala", "Mosul", "Kufa", "Anbar")
     var picked by remember { mutableStateOf(me.customHexColor) }
     var avatar by remember { mutableStateOf(me.avatarUrl.ifBlank { null }) }

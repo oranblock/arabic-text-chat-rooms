@@ -54,7 +54,15 @@ fun MessageBubble(
 ) {
     val context = LocalContext.current
     val loader = remember { svgCapableLoader(context) }
-    val skin = skinFor(message.senderRank)
+    val baseSkin = skinFor(message.senderRank)
+    // User-picked bubble color (iqchat "chatbox" skin) overrides the rank skin fill.
+    val skin = message.customHexColor?.let { hex ->
+        runCatching {
+            val c = Color(android.graphics.Color.parseColor(hex))
+            val lum = 0.299f * c.red + 0.587f * c.green + 0.114f * c.blue
+            baseSkin.copy(fill = Brush.horizontalGradient(listOf(c, c)), text = if (lum > 0.6f) Color(0xFF222222) else Color.White)
+        }.getOrNull()
+    } ?: baseSkin
     val avatarShape = RoundedCornerShape(14.dp)
 
     Row(
