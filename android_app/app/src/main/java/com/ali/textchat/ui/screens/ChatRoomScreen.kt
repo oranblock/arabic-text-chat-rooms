@@ -198,7 +198,7 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
                 }
             }
             // Floating magenta head buttons (left edge) + rooms pill (right), over the chat — exact iqchat.top
-            Column(Modifier.align(Alignment.TopStart).padding(6.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
+            Column(Modifier.align(Alignment.TopEnd).padding(6.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
                 HeadOption(Icons.Default.AccountCircle, 0) { showAccount = true }
                 HeadOption(Icons.Default.Email, 0) { socket.loadThreads(); showInbox = true }
                 HeadOption(Icons.Default.Notifications, notifications.size) { showNotifs = true }
@@ -206,7 +206,7 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
                 HeadOption(Icons.Default.PersonAdd, requests.size) { socket.loadRequests(); showRequests = true }
                 if (isStaff(me?.rank)) HeadOption(Icons.Default.Security, 0) { showAdminPanel = true }
             }
-            Box(Modifier.align(Alignment.TopEnd).padding(6.dp)) {
+            Box(Modifier.align(Alignment.TopStart).padding(6.dp)) {
                 HeadPill(Icons.Default.Home, "قائمة الرومات") { showRooms = true; socket.listRooms() }
             }
             }
