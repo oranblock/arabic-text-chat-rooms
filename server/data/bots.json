@@ -3,7 +3,7 @@
     {
       "id": "bot_widad",
       "name": "ست وداد 🤖",
-      "avatarUrl": "https://api.dicebear.com/7.x/bottts/png?seed=Widad",
+      "avatarUrl": "http://192.236.249.134:3000/uploads/bots/bot_widad.webp",
       "rank": "BOT",
       "customHexColor": "#00E5FF",
       "role": "trivia",
@@ -21,7 +21,7 @@
     {
       "id": "bot_abu_haider",
       "name": "أبو حيدر المضياف ☕",
-      "avatarUrl": "https://api.dicebear.com/7.x/bottts/png?seed=AbuHaider",
+      "avatarUrl": "http://192.236.249.134:3000/uploads/bots/bot_abu_haider.webp",
       "rank": "BOT",
       "customHexColor": "#10B981",
       "role": "proverbs",
@@ -39,7 +39,7 @@
     {
       "id": "bot_shaer",
       "name": "شاعر الديوان 📜",
-      "avatarUrl": "https://api.dicebear.com/7.x/bottts/png?seed=bot_shaer",
+      "avatarUrl": "http://192.236.249.134:3000/uploads/bots/bot_shaer.webp",
       "rank": "BOT",
       "customHexColor": "#E11D48",
       "role": "poetry",
@@ -48,7 +48,7 @@
     {
       "id": "bot_food",
       "name": "طباخ الديوان 🍲",
-      "avatarUrl": "https://api.dicebear.com/7.x/bottts/png?seed=bot_food",
+      "avatarUrl": "http://192.236.249.134:3000/uploads/bots/bot_food.webp",
       "rank": "BOT",
       "customHexColor": "#F59E0B",
       "role": "cuisine",
@@ -57,7 +57,7 @@
     {
       "id": "bot_kora",
       "name": "محلل الكورة ⚽",
-      "avatarUrl": "https://api.dicebear.com/7.x/bottts/png?seed=bot_kora",
+      "avatarUrl": "http://192.236.249.134:3000/uploads/bots/bot_kora.webp",
       "rank": "BOT",
       "customHexColor": "#22C55E",
       "role": "sport",
@@ -75,7 +75,7 @@
     {
       "id": "bot_riddle",
       "name": "أبو الألغاز 🧠",
-      "avatarUrl": "https://api.dicebear.com/7.x/bottts/png?seed=bot_riddle",
+      "avatarUrl": "http://192.236.249.134:3000/uploads/bots/bot_riddle.webp",
       "rank": "BOT",
       "customHexColor": "#A855F7",
       "role": "riddle",
@@ -84,7 +84,7 @@
     {
       "id": "bot_math",
       "name": "لغز الأرقام 🔢",
-      "avatarUrl": "https://api.dicebear.com/7.x/bottts/png?seed=bot_math",
+      "avatarUrl": "http://192.236.249.134:3000/uploads/bots/bot_math.webp",
       "rank": "BOT",
       "customHexColor": "#0EA5E9",
       "role": "math",
