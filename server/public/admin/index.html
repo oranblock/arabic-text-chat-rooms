@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة التحكم المركزية - ديوانية العراق</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --accent: #ec4899;
+      --gold: #f59e0b;
+      --violet: #8b5cf6;
+      --green: #10b981;
+      --red: #ef4444;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Tajawal', sans-serif; }
+    body { background: var(--bg-dark); color: var(--text); min-height: 100vh; padding: 20px; }
+    .container { max-width: 1280px; margin: 0 auto; }
+    header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; background: linear-gradient(135deg, #1e3a8a, #0f172a); border: 1px solid var(--card-border); padding: 18px 24px; border-radius: 14px; margin-bottom: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand h1 { font-size: 22px; font-weight: 800; color: #fff; }
+    .brand span { font-size: 13px; color: var(--text-muted); }
+    .admin-profile { display: flex; align-items: center; gap: 14px; }
+    .btn { background: var(--primary); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 13px; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    .btn-danger { background: var(--red); }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-success { background: var(--green); }
+    .btn-success:hover { background: #059669; }
+    .btn-warning { background: var(--gold); color: #000; }
+    .btn-warning:hover { background: #d97706; }
+    .btn-outline { background: transparent; border: 1px solid var(--card-border); color: var(--text); }
+    .btn-outline:hover { background: #334155; }
+    
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 18px; display: flex; align-items: center; gap: 16px; }
+    .stat-icon { font-size: 32px; width: 50px; height: 50px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); }
+    .stat-val { font-size: 24px; font-weight: 800; color: #fff; }
+    .stat-lbl { font-size: 12px; color: var(--text-muted); }
+
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--card-border); padding-bottom: 10px; overflow-x: auto; }
+    .tab { padding: 10px 18px; border-radius: 8px; background: transparent; color: var(--text-muted); cursor: pointer; font-weight: 700; font-size: 14px; border: none; transition: 0.2s; white-space: nowrap; }
+    .tab.active { background: var(--primary); color: #fff; }
+
+    .section-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; padding: 22px; margin-bottom: 24px; }
+    .section-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 18px; gap: 12px; }
+    .section-title { font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+
+    /* Bulk actions toolbar */
+    .bulk-toolbar { background: rgba(37, 99, 235, 0.15); border: 1px solid var(--primary); border-radius: 10px; padding: 12px 18px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; animation: fadeIn 0.2s ease-in; }
+    .bulk-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    /* Table styles */
+    .table-responsive { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: right; }
+    th { padding: 12px 14px; background: #0f172a; color: var(--text-muted); font-size: 12px; border-bottom: 2px solid var(--card-border); }
+    td { padding: 14px; border-bottom: 1px solid var(--card-border); font-size: 13px; vertical-align: middle; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+    .badge-owner { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid #f59e0b; }
+    .badge-mod { background: rgba(139, 92, 246, 0.2); color: #a78bfa; border: 1px solid #8b5cf6; }
+    .badge-vip { background: rgba(236, 72, 153, 0.2); color: #f472b6; border: 1px solid #ec4899; }
+    .badge-reg { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; border: 1px solid #64748b; }
+    .badge-bot { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; }
+    
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .status-online { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .status-offline { background: var(--text-muted); }
+
+    /* Forms & Inputs */
+    input[type="text"], input[type="password"], select, textarea {
+      background: #0f172a; border: 1px solid var(--card-border); color: #fff; padding: 10px 14px; border-radius: 8px; font-size: 13px; outline: none; transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--primary); }
+    .search-box { width: 100%; max-width: 320px; }
+
+    /* Switch */
+    .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #334155; transition: .3s; border-radius: 24px; }
+    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+    input:checked + .slider { background-color: var(--primary); }
+    input:checked + .slider:before { transform: translateX(20px); }
+
+    /* Rooms Grid */
+    .rooms-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .room-card { background: #0f172a; border: 1px solid var(--card-border); border-radius: 12px; padding: 16px; }
+    .room-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+
+    /* Auth Modal */
+    #login-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+    .login-box { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 32px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    .login-box h2 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+    .login-box p { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
+    .form-group { margin-bottom: 16px; text-align: right; }
+    .form-group label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--text-muted); }
+    .form-group input { width: 100%; }
+
+    /* Terminal Console */
+    .terminal { background: #050811; border: 1px solid #1e293b; border-radius: 10px; padding: 16px; font-family: monospace; font-size: 13px; }
+    .terminal-output { height: 160px; overflow-y: auto; color: #38bdf8; margin-bottom: 10px; white-space: pre-wrap; }
+    .terminal-input-row { display: flex; gap: 8px; }
+    .terminal-input-row input { flex: 1; font-family: monospace; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+
+  <!-- Login Modal (Active if no token) -->
+  <div id="login-overlay" style="display: none;">
+    <div class="login-box">
+      <h2>🛡️ ديوانية العراق</h2>
+      <p>تسجيل الدخول إلى لوحة التحكم الإدارية</p>
+      <div id="login-err" style="color: var(--red); font-size: 12px; margin-bottom: 12px; display: none;"></div>
+      <div class="form-group">
+        <label>اسم المشرف / المدير</label>
+        <input type="text" id="login-name" value="ali" placeholder="مثال: ali أو علي">
+      </div>
+      <div class="form-group">
+        <label>كلمة المرور</label>
+        <input type="password" id="login-pass" value="demo123" placeholder="كلمة المرور">
+      </div>
+      <button class="btn" style="width: 100%; justify-content: center; padding: 12px;" onclick="handleLogin()">تسجيل الدخول 🚀</button>
+      <div style="margin-top: 14px; font-size: 11px; color: var(--text-muted);">
+        الحساب الافتراضي للمالك: <b>ali</b> / <b>demo123</b>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="brand">
+        <span style="font-size: 28px;">🇮🇶</span>
+        <div>
+          <h1>لوحة الإدارة المركزية</h1>
+          <span>ديوانية العراق - إدارة الأعضاء، الغرف، البوتات، والأجهزة</span>
+        </div>
+      </div>
+      <div class="admin-profile">
+        <span id="admin-badge" class="badge badge-owner">👑 جاري التحميل...</span>
+        <button class="btn btn-outline" onclick="fetchData()">🔄 تحديث فوري</button>
+        <button class="btn btn-danger" onclick="logout()">خروج 🚪</button>
+      </div>
+    </header>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon" style="color: var(--green);">🟢</div>
+        <div>
+          <div class="stat-val" id="stat-online">0</div>
+          <div class="stat-lbl">المتصلون لحظياً</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="color: var(--primary);">👥</div>
+        <div>
+          <div class="stat-val" id="stat-users">0</div>
+          <div class="stat-lbl">إجمالي الأعضاء</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="color: var(--violet);">🚪</div>
+        <div>
+          <div class="stat-val" id="stat-rooms">0</div>
+          <div class="stat-lbl">الغرف النشطة</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="color: var(--red);">⛔</div>
+        <div>
+          <div class="stat-val" id="stat-banned">0</div>
+          <div class="stat-lbl">الأجهزة المحظورة</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="color: var(--accent);">🤖</div>
+        <div>
+          <div class="stat-val" id="stat-bot">نشط</div>
+          <div class="stat-lbl">ست وداد (مسابقات)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('users', this)">👥 إدارة الأعضاء المتعددة</button>
+      <button class="tab" onclick="switchTab('rooms', this)">🚪 الغرف والشات</button>
+      <button class="tab" onclick="switchTab('broadcast', this)">📢 الإذاعة والإعلانات</button>
+      <button class="tab" onclick="switchTab('quiz', this)">🤖 بوت المسابقات ست وداد</button>
+      <button class="tab" onclick="switchTab('banned', this)">⛔ عتاد الأجهزة المحظورة</button>
+      <button class="tab" onclick="switchTab('terminal', this)">💻 موجه الأوامر السريع (CLI)</button>
+    </div>
+
+    <!-- TAB 1: Multi-User Management -->
+    <div id="tab-users" class="section-card">
+      <div class="section-header">
+        <div class="section-title">
+          <span>👥 قائمة الأعضاء وإدارة المستخدمين المتعددة</span>
+          <span id="user-count-lbl" style="font-size: 13px; color: var(--text-muted);"></span>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <input type="text" id="user-search" class="search-box" placeholder="🔍 بحث بالاسم أو المعرف..." oninput="renderUsersTable()">
+          <select id="user-filter" onchange="renderUsersTable()">
+            <option value="all">كل الأعضاء</option>
+            <option value="online">المتصلون فقط 🟢</option>
+            <option value="muted">المكتومين فقط 🔇</option>
+            <option value="staff">المشرفين والإدارة 🛡️</option>
+            <option value="vip">الأعضاء المميزين 💎</option>
+            <option value="ghost">وضع الشبح 👻</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Bulk Actions Toolbar -->
+      <div id="bulk-toolbar" class="bulk-toolbar" style="display: none;">
+        <div>
+          <span>📌 تم تحديد <b id="selected-count">0</b> مستخدم</span>
+        </div>
+        <div class="bulk-actions">
+          <button class="btn btn-success" onclick="execBulk('unmute')">🔊 فك كتم المحددين</button>
+          <button class="btn btn-warning" onclick="execBulk('mute')">🔇 كتم المحددين</button>
+          <button class="btn btn-outline" onclick="execBulk('ghost')">👻 تفعيل الشبح</button>
+          <button class="btn btn-outline" onclick="execBulk('unghost')">👁️ إلغاء الشبح</button>
+          <button class="btn btn-outline" onclick="execBulk('promote', 'VIP_DIAMOND')">💎 ترقية لـ VIP</button>
+          <button class="btn btn-outline" onclick="execBulk('promote', 'REGULAR')">👤 تنزيل لعادي</button>
+          <button class="btn btn-danger" onclick="execBulk('kick')">🚪 طرد المحددين</button>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th width="40"><input type="checkbox" id="select-all" onchange="toggleSelectAll(this.checked)"></th>
+              <th>العضو</th>
+              <th>الرتبة</th>
+              <th>الحالة</th>
+              <th>الغرفة الحالية</th>
+              <th>الأجهزة المسجلة</th>
+              <th>الإجراءات الفورية</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody">
+            <!-- Populated via JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 2: Rooms & Chat Controls -->
+    <div id="tab-rooms" class="section-card" style="display: none;">
+      <div class="section-header">
+        <div class="section-title">🚪 التحكم بالغرف والشات الجماعي</div>
+      </div>
+      <div class="rooms-grid" id="rooms-container">
+        <!-- Populated via JS -->
+      </div>
+    </div>
+
+    <!-- TAB 3: Broadcast Console -->
+    <div id="tab-broadcast" class="section-card" style="display: none;">
+      <div class="section-header">
+        <div class="section-title">📢 إرسال إعلان عام (برودكاست) لجميع الأعضاء</div>
+      </div>
+      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">
+        سيظهر هذا الإشعار كنافذة فورية لجميع المستخدمين المتصلين في جميع الغرف، كما سيُرسل كإشعار FCM للأجهزة المتصلة.
+      </p>
+      <textarea id="broadcast-input" rows="4" style="width: 100%; margin-bottom: 12px;" placeholder="اكتب نص الإعلان هنا (مثال: أهلاً بكم في سهرة الليلة، مسابقات وجوائز مميزة الساعة 9 مساءً)..."></textarea>
+      <button class="btn" onclick="sendBroadcast()">إرسال الإعلان لجميع الغرف 📢</button>
+    </div>
+
+    <!-- TAB 4: Quiz Bot -->
+    <div id="tab-quiz" class="section-card" style="display: none;">
+      <div class="section-header">
+        <div class="section-title">🤖 بوت المسابقات التفاعلي ("ست وداد 🤖")</div>
+        <button class="btn btn-success" onclick="triggerQuiz()">🎯 طرح سؤال مسابقة الآن بالشات</button>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; flex-wrap: wrap;">
+        <div>
+          <h4 style="margin-bottom: 12px; color: var(--gold);">🏆 قائمة المتصدرين في النقاط</h4>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>الترتيب</th>
+                  <th>العضو</th>
+                  <th>الرتبة</th>
+                  <th>النقاط 🏆</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboard-tbody">
+                <!-- Populated via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <h4 style="margin-bottom: 12px; color: #38bdf8;">💡 مميزات بوت ست وداد</h4>
+          <div style="background: #0f172a; padding: 18px; border-radius: 12px; border: 1px solid var(--card-border); font-size: 13px; line-height: 1.8; color: var(--text-muted);">
+            • يطرح أسئلة ثقافية عراقية وألغاز كلمات دورياً.<br>
+            • يراقب رسائل الشات لحظياً ويكتشف الإجابة الصحيحة تلقائياً.<br>
+            • يمنح الفائز 10 نقاط ويكتب تهنئة خاصة باسمه في الشات العام.<br>
+            • يمكن للمشرفين طرح أسئلة فورية بنقرة زر أو عبر أمر <code>/quiz</code>.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: Hardware Banned Devices -->
+    <div id="tab-banned" class="section-card" style="display: none;">
+      <div class="section-header">
+        <div class="section-title">⛔ عتاد الأجهزة المحظورة نهائياً (Hardware UUID)</div>
+      </div>
+      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">
+        الأجهزة المدرجة هنا محظورة على مستوى العتاد الفيزيائي للهاتف ولا يمكنها الاتصال أو تسجيل حساب جديد حتى لو غيّر المستخدم اسمه أو أعاد تثبيت التطبيق.
+      </p>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>معرف عتاد الجهاز (Hardware Hash)</th>
+              <th>بواسطة</th>
+              <th>تاريخ الحظر</th>
+              <th>الإجراء</th>
+            </tr>
+          </thead>
+          <tbody id="banned-tbody">
+            <!-- Populated via JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 6: Terminal Console (CLI) -->
+    <div id="tab-terminal" class="section-card" style="display: none;">
+      <div class="section-header">
+        <div class="section-title">💻 موجه الأوامر السريع (Admin CLI Terminal)</div>
+      </div>
+      <div class="terminal">
+        <div class="terminal-output" id="terminal-out">مرحباً بك في وحدة تحكم أوامر ديوانية العراق.
+اكتب /help لعرض قائمة الأوامر المتاحة.</div>
+        <div class="terminal-input-row">
+          <input type="text" id="terminal-cmd" placeholder="اكتب أمراً (مثال: /mute ahmed أو /quiz أو /topic أهلاً بالجميع)..." onkeydown="if(event.key==='Enter') execTerminalCmd()">
+          <button class="btn" onclick="execTerminalCmd()">تنفيذ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let state = {
+      token: localStorage.getItem('ali_admin_token') || '',
+      user: null,
+      data: null,
+      selectedUids: new Set()
+    };
+
+    function headers() {
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + state.token
+      };
+    }
+
+    async function checkAuth() {
+      if (!state.token) {
+        document.getElementById('login-overlay').style.display = 'flex';
+        return;
+      }
+      try {
+        const res = await fetch('/api/admin/auth-check', { headers: headers() });
+        const data = await res.json();
+        if (data.ok) {
+          state.user = data.user;
+          document.getElementById('login-overlay').style.display = 'none';
+          document.getElementById('admin-badge').innerText = `${state.user.rank === 'OWNER' ? '👑' : '🛡️'} ${state.user.name} (${state.user.rank})`;
+          fetchData();
+        } else {
+          document.getElementById('login-overlay').style.display = 'flex';
+        }
+      } catch (e) {
+        document.getElementById('login-overlay').style.display = 'flex';
+      }
+    }
+
+    async function handleLogin() {
+      const name = document.getElementById('login-name').value.trim();
+      const password = document.getElementById('login-pass').value.trim();
+      const errEl = document.getElementById('login-err');
+      errEl.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, password })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          state.token = data.token;
+          state.user = data.user;
+          localStorage.setItem('ali_admin_token', state.token);
+          document.getElementById('login-overlay').style.display = 'none';
+          document.getElementById('admin-badge').innerText = `${state.user.rank === 'OWNER' ? '👑' : '🛡️'} ${state.user.name} (${state.user.rank})`;
+          fetchData();
+        } else {
+          errEl.innerText = data.error || 'فشل تسجيل الدخول';
+          errEl.style.display = 'block';
+        }
+      } catch (e) {
+        errEl.innerText = 'تعذر الاتصال بالسيرفر';
+        errEl.style.display = 'block';
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('ali_admin_token');
+      state.token = '';
+      state.user = null;
+      document.getElementById('login-overlay').style.display = 'flex';
+    }
+
+    async function fetchData() {
+      if (!state.token) return;
+      try {
+        const res = await fetch('/api/admin/data', { headers: headers() });
+        const data = await res.json();
+        if (data.ok) {
+          state.data = data;
+          renderStats();
+          renderUsersTable();
+          renderRooms();
+          renderLeaderboard();
+          renderBanned();
+        }
+      } catch (e) {
+        console.error('Fetch error:', e);
+      }
+    }
+
+    function renderStats() {
+      if (!state.data) return;
+      const s = state.data.stats;
+      document.getElementById('stat-online').innerText = s.onlineCount;
+      document.getElementById('stat-users').innerText = s.totalUsers;
+      document.getElementById('stat-rooms').innerText = s.roomsCount;
+      document.getElementById('stat-banned').innerText = s.bannedCount;
+    }
+
+    function renderUsersTable() {
+      if (!state.data) return;
+      const tbody = document.getElementById('users-tbody');
+      const search = document.getElementById('user-search').value.toLowerCase().trim();
+      const filter = document.getElementById('user-filter').value;
+
+      let users = state.data.users.filter(u => {
+        const matchSearch = !search || u.name.toLowerCase().includes(search) || u.id.toLowerCase().includes(search);
+        if (!matchSearch) return false;
+        if (filter === 'online') return u.online;
+        if (filter === 'muted') return u.isMuted;
+        if (filter === 'ghost') return u.isGhost;
+        if (filter === 'staff') return u.rank === 'OWNER' || u.rank === 'MODERATOR';
+        if (filter === 'vip') return u.rank === 'VIP_DIAMOND';
+        return true;
+      });
+
+      document.getElementById('user-count-lbl').innerText = `(إجمالي المعروض: ${users.length})`;
+
+      tbody.innerHTML = users.map(u => {
+        const isSelected = state.selectedUids.has(u.id);
+        const rankClass = u.rank === 'OWNER' ? 'badge-owner' : (u.rank === 'MODERATOR' ? 'badge-mod' : (u.rank === 'VIP_DIAMOND' ? 'badge-vip' : 'badge-reg'));
+        const rankIcon = u.rank === 'OWNER' ? '👑 مدير' : (u.rank === 'MODERATOR' ? '🛡️ مشرف' : (u.rank === 'VIP_DIAMOND' ? '💎 مميز' : '👤 عادي'));
+
+        return `
+          <tr style="${isSelected ? 'background: rgba(37, 99, 235, 0.1);' : ''}">
+            <td>
+              <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleSelectUser('${u.id}', this.checked)">
+            </td>
+            <td>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span class="status-dot ${u.online ? 'status-online' : 'status-offline'}"></span>
+                <div>
+                  <div style="font-weight: 700; color: ${u.customHexColor || '#fff'};">${u.name}</div>
+                  <div style="font-size: 11px; color: var(--text-muted);">${u.id}</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <select onchange="changeUserRank('${u.id}', this.value)" style="padding: 4px 8px; font-size: 11px;">
+                <option value="REGULAR" ${u.rank==='REGULAR'?'selected':''}>👤 عادي</option>
+                <option value="VIP_DIAMOND" ${u.rank==='VIP_DIAMOND'?'selected':''}>💎 مميز VIP</option>
+                <option value="MODERATOR" ${u.rank==='MODERATOR'?'selected':''}>🛡️ مشرف</option>
+                <option value="OWNER" ${u.rank==='OWNER'?'selected':''}>👑 مدير</option>
+              </select>
+            </td>
+            <td>
+              <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                ${u.isMuted ? '<span class="badge" style="background: #ef444420; color: #ef4444; border: 1px solid #ef4444;">🔇 مكتوم</span>' : '<span class="badge" style="background: #10b98120; color: #10b981;">🔊 مفعل</span>'}
+                ${u.isGhost ? '<span class="badge" style="background: #8b5cf620; color: #a78bfa; border: 1px solid #8b5cf6;">👻 شبح</span>' : ''}
+              </div>
+            </td>
+            <td>
+              ${u.currentRoom ? `<span class="badge badge-reg">${u.currentRoom}</span>` : '<span style="color: var(--text-muted); font-size: 11px;">غير متصل</span>'}
+            </td>
+            <td>
+              <span style="font-size: 12px; color: var(--text-muted);">${u.devicesCount} جهاز</span>
+            </td>
+            <td>
+              <div style="display: flex; gap: 6px;">
+                <button class="btn ${u.isMuted ? 'btn-success' : 'btn-warning'}" style="padding: 4px 8px; font-size: 11px;" onclick="userAction('${u.id}', '${u.isMuted ? 'unmute' : 'mute'}')">
+                  ${u.isMuted ? '🔊 فك كتم' : '🔇 كتم'}
+                </button>
+                <button class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;" onclick="userAction('${u.id}', '${u.isGhost ? 'unghost' : 'ghost'}')">
+                  ${u.isGhost ? '👁️ كشف' : '👻 شبح'}
+                </button>
+                <button class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;" onclick="userAction('${u.id}', 'kick')">
+                  🚪 طرد
+                </button>
+                <button class="btn btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="userAction('${u.id}', 'ban_device')">
+                  ⛔ حظر جهاز
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      updateBulkToolbar();
+    }
+
+    function toggleSelectUser(uid, checked) {
+      if (checked) state.selectedUids.add(uid);
+      else state.selectedUids.delete(uid);
+      updateBulkToolbar();
+      renderUsersTable();
+    }
+
+    function toggleSelectAll(checked) {
+      const search = document.getElementById('user-search').value.toLowerCase().trim();
+      const filter = document.getElementById('user-filter').value;
+      if (!state.data) return;
+
+      state.data.users.forEach(u => {
+        const matchSearch = !search || u.name.toLowerCase().includes(search) || u.id.toLowerCase().includes(search);
+        if (!matchSearch) return;
+        if (filter === 'online' && !u.online) return;
+        if (filter === 'muted' && !u.isMuted) return;
+        if (filter === 'ghost' && !u.isGhost) return;
+        if (filter === 'staff' && !(u.rank === 'OWNER' || u.rank === 'MODERATOR')) return;
+        if (filter === 'vip' && u.rank !== 'VIP_DIAMOND') return;
+
+        if (checked) state.selectedUids.add(u.id);
+        else state.selectedUids.delete(u.id);
+      });
+      updateBulkToolbar();
+      renderUsersTable();
+    }
+
+    function updateBulkToolbar() {
+      const toolbar = document.getElementById('bulk-toolbar');
+      const count = state.selectedUids.size;
+      document.getElementById('selected-count').innerText = count;
+      toolbar.style.display = count > 0 ? 'flex' : 'none';
+      document.getElementById('select-all').checked = count > 0 && state.data && count === state.data.users.length;
+    }
+
+    async function execBulk(action, newRank) {
+      const uids = Array.from(state.selectedUids);
+      if (!uids.length) return;
+      if (!confirm(`هل أنت متأكد من تطبيق إجراء (${action}) على ${uids.length} مستخدم؟`)) return;
+
+      try {
+        const res = await fetch('/api/admin/bulk-action', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ action, userIds: uids, newRank })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          state.selectedUids.clear();
+          fetchData();
+        } else {
+          alert(data.error || 'حدث خطأ');
+        }
+      } catch (e) {
+        alert('فشل الاتصال بالسيرفر');
+      }
+    }
+
+    async function userAction(targetUserId, action) {
+      try {
+        const res = await fetch('/api/admin/user-action', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ targetUserId, action })
+        });
+        const data = await res.json();
+        if (data.ok) fetchData();
+        else alert(data.error || 'حدث خطأ');
+      } catch (e) {
+        alert('فشل الاتصال بالسيرفر');
+      }
+    }
+
+    async function changeUserRank(targetUserId, newRank) {
+      try {
+        const res = await fetch('/api/admin/user-action', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ targetUserId, action: 'promote', newRank })
+        });
+        const data = await res.json();
+        if (data.ok) fetchData();
+        else {
+          alert(data.error || 'حدث خطأ');
+          fetchData();
+        }
+      } catch (e) {
+        alert('فشل الاتصال بالسيرفر');
+      }
+    }
+
+    function renderRooms() {
+      if (!state.data) return;
+      const container = document.getElementById('rooms-container');
+      container.innerHTML = state.data.rooms.map(r => `
+        <div class="room-card">
+          <div class="room-head">
+            <h3 style="font-size: 16px; font-weight: 800;">🇮🇶 ${r.title}</h3>
+            <span class="badge badge-reg">${r.online} متصل</span>
+          </div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">معرف: ${r.id}</div>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 13px;">قفل الشات العام:</span>
+              <label class="switch">
+                <input type="checkbox" ${r.lockPublic ? 'checked' : ''} onchange="toggleRoomLock('${r.id}', 'public', this.checked)">
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 13px;">قفل المحادثات الخاصة:</span>
+              <label class="switch">
+                <input type="checkbox" ${r.lockPrivate ? 'checked' : ''} onchange="toggleRoomLock('${r.id}', 'private', this.checked)">
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div style="margin-top: 6px;">
+              <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">إعلان الروم (Topic):</label>
+              <div style="display: flex; gap: 6px;">
+                <input type="text" id="topic-${r.id}" value="${r.topic || ''}" style="flex: 1; font-size: 12px; padding: 6px 8px;">
+                <button class="btn btn-outline" style="padding: 6px 10px; font-size: 11px;" onclick="saveRoomTopic('${r.id}')">حفظ</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function toggleRoomLock(roomId, what, value) {
+      try {
+        await fetch('/api/admin/room-control', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ roomId, [what === 'public' ? 'lockPublic' : 'lockPrivate']: value })
+        });
+        fetchData();
+      } catch (e) {
+        alert('فشل الاتصال');
+      }
+    }
+
+    async function saveRoomTopic(roomId) {
+      const topic = document.getElementById(`topic-${roomId}`).value;
+      try {
+        await fetch('/api/admin/room-control', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ roomId, topic })
+        });
+        alert('✅ تم حفظ إعلان الروم بنجاح');
+        fetchData();
+      } catch (e) {
+        alert('فشل الاتصال');
+      }
+    }
+
+    async function sendBroadcast() {
+      const text = document.getElementById('broadcast-input').value.trim();
+      if (!text) return alert('يرجى كتابة نص الإعلان');
+      try {
+        const res = await fetch('/api/admin/broadcast', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ text })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          alert('📢 تم إرسال الإعلان لجميع الغرف بنجاح!');
+          document.getElementById('broadcast-input').value = '';
+        } else {
+          alert(data.error || 'حدث خطأ');
+        }
+      } catch (e) {
+        alert('فشل الاتصال بالسيرفر');
+      }
+    }
+
+    async function triggerQuiz() {
+      try {
+        const res = await fetch('/api/admin/quiz-trigger', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ roomId: 'games' })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          alert('🎮 تم طرح سؤال مسابقة الآن في الروم بواسطة ست وداد: ' + data.question.q);
+          fetchData();
+        }
+      } catch (e) {
+        alert('فشل الاتصال');
+      }
+    }
+
+    function renderLeaderboard() {
+      if (!state.data) return;
+      const tbody = document.getElementById('leaderboard-tbody');
+      if (!state.data.scores || !state.data.scores.length) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">لا توجد نقاط مسابقات مسجلة بعد</td></tr>';
+        return;
+      }
+      tbody.innerHTML = state.data.scores.map((s, idx) => `
+        <tr>
+          <td><b>#${idx + 1}</b></td>
+          <td><b>${s.name}</b></td>
+          <td><span class="badge badge-vip">${s.rank}</span></td>
+          <td><b style="color: var(--gold);">${s.score} نقطة 🏆</b></td>
+        </tr>
+      `).join('');
+    }
+
+    function renderBanned() {
+      if (!state.data) return;
+      const tbody = document.getElementById('banned-tbody');
+      if (!state.data.banned || !state.data.banned.length) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">لا توجد أجهزة محظورة حالياً 👍</td></tr>';
+        return;
+      }
+      tbody.innerHTML = state.data.banned.map(b => `
+        <tr>
+          <td><code style="color: #38bdf8;">${b.hash}</code></td>
+          <td>${b.by}</td>
+          <td>${b.at ? new Date(b.at).toLocaleDateString('ar-IQ') : '-'}</td>
+          <td>
+            <button class="btn btn-success" style="padding: 4px 10px; font-size: 11px;" onclick="unbanDevice('${b.hash}')">فك الحظر ✅</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function unbanDevice(deviceHash) {
+      try {
+        const res = await fetch('/api/admin/user-action', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ action: 'unban_device', deviceHash })
+        });
+        const data = await res.json();
+        if (data.ok) fetchData();
+        else alert(data.error || 'حدث خطأ');
+      } catch (e) {
+        alert('فشل الاتصال');
+      }
+    }
+
+    async function execTerminalCmd() {
+      const input = document.getElementById('terminal-cmd');
+      const cmd = input.value.trim();
+      if (!cmd) return;
+      const out = document.getElementById('terminal-out');
+      out.innerHTML += `\n> ${cmd}`;
+
+      try {
+        const res = await fetch('/api/admin/exec-command', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ command: cmd, roomId: 'iraq' })
+        });
+        const data = await res.json();
+        out.innerHTML += `\n${data.output || 'تم التنفيذ'}\n`;
+        out.scrollTop = out.scrollHeight;
+        input.value = '';
+        fetchData();
+      } catch (e) {
+        out.innerHTML += `\n⚠️ خطأ في الاتصال\n`;
+      }
+    }
+
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      ['users', 'rooms', 'broadcast', 'quiz', 'banned', 'terminal'].forEach(id => {
+        document.getElementById(`tab-${id}`).style.display = (id === tabId ? 'block' : 'none');
+      });
+    }
+
+    // Auto-refresh every 5 seconds
+    setInterval(() => {
+      if (state.token && state.selectedUids.size === 0) fetchData();
+    }, 5000);
+
+    // Initial check
+    checkAuth();
+  </script>
+</body>
+</html>

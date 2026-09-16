@@ -5,6 +5,7 @@
  * accounts, ranks, anti-spam, auto-mute, moderation, filter, ghost mode,
  * strict device ban, in-chat YouTube sync, permanent logs.
  */
+const path = require('path');
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -15,6 +16,7 @@ const auth = require('./lib/auth');
 const filter = require('./lib/filter');
 const push = require('./lib/push');
 const { QuizBot } = require('./lib/bot');
+const { createAdminRouter, handleAdminCommand } = require('./lib/admin_api');
 
 const app = express();
 app.use(cors());
@@ -96,6 +98,13 @@ function makeMessage(u, roomId, text, extra = {}) {
 
 const quizBot = new QuizBot(io, store, makeMessage);
 quizBot.start();
+
+const adminRouter = createAdminRouter({
+  store, auth, online, io, quizBot, publicUser, roomsSummary, isStaff, rank, RANKS, now, makeMessage
+});
+app.use('/api/admin', adminRouter);
+app.use('/admin', express.static(path.join(__dirname, 'public/admin')));
+app.get('/admin', (_req, res) => res.sendFile(path.join(__dirname, 'public/admin/index.html')));
 
 io.use((socket, next) => {
   const deviceHash = socket.handshake.query.deviceHash || '';
@@ -214,6 +223,14 @@ io.on('connection', (socket) => {
     if (!p) return;
     const room = store.state.rooms[p.roomId];
     if (!room) return;
+
+    // In-chat slash admin commands (/mute, /unmute, /kick, /ban, /promote, /quiz, /broadcast, etc.)
+    if (typeof text === 'string' && (text.trim().startsWith('/') || text.trim().startsWith('!'))) {
+      const handled = handleAdminCommand(socket, user, room, text, {
+        store, io, online, rank, isStaff, RANKS, publicUser, quizBot, now, roomsSummary
+      });
+      if (handled) return;
+    }
 
     if (user.isMuted) return socket.emit('error_alert', { message: 'أنت مكتوم، انتظر موافقة المشرف' });
     if (room.lockPublic && !isStaff(user)) return socket.emit('error_alert', { message: 'الشات العام مقفل حالياً' });

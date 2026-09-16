@@ -119,6 +119,39 @@ const check = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name); 
   const qMsg = await Promise.race([quizProm, wait(1500).then(() => null)]);
   check('quiz bot asks question', qMsg && qMsg.senderName.includes('ست وداد'));
 
+  // Standalone Web Admin Dashboard & REST API
+  const adminPageRes = await fetch(`${URL}/admin`);
+  check('web admin panel reachable at /admin', adminPageRes.status === 200);
+
+  const adminLoginRes = await fetch(`${URL}/api/admin/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'المالك' + uniq, password: 'pass123' })
+  });
+  const adminAuth = await adminLoginRes.json();
+  check('web admin API login succeeds', adminAuth.ok && adminAuth.token);
+
+  const bulkMuteRes = await fetch(`${URL}/api/admin/bulk-action`, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + adminAuth.token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'mute', userIds: [rMember.user.id, rSpam.user.id] })
+  });
+  const bulkMuteData = await bulkMuteRes.json();
+  check('web admin bulk-action mutes multiple users', bulkMuteData.ok && bulkMuteData.modified === 2);
+
+  const bulkUnmuteRes = await fetch(`${URL}/api/admin/bulk-action`, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + adminAuth.token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'unmute', userIds: [rMember.user.id, rSpam.user.id] })
+  });
+  const bulkUnmuteData = await bulkUnmuteRes.json();
+  check('web admin bulk-action unmutes multiple users', bulkUnmuteData.ok && bulkUnmuteData.modified === 2);
+
+  // In-chat admin slash commands
+  const cmdSysMsg = new Promise(resolve => owner.once('system_message', m => resolve(m)));
+  owner.emit('send_message', { text: '/topic اهلا بكم' });
+  const cmdEvt = await Promise.race([cmdSysMsg, wait(1500).then(() => null)]);
+  check('in-chat /topic command executes with feedback', cmdEvt && cmdEvt.text.includes('اهلا بكم'));
+
   owner.emit('send_message', { text: 'رسالة تبقى بالسجل' });
   await wait(300);
   const rejoin = await rpc(owner, 'join_room', { token: rOwner.token, roomId: 'iraq' });
