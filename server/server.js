@@ -19,10 +19,17 @@ const { QuizBot } = require('./lib/bot');
 const { createAdminRouter, handleAdminCommand } = require('./lib/admin_api');
 
 const app = express();
+app.set('trust proxy', true);
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '64kb' }));
+app.use(express.urlencoded({ extended: true, limit: '64kb' }));
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } });
+const io = new Server(server, {
+  cors: { origin: '*', methods: ['GET', 'POST'] },
+  maxHttpBufferSize: 1e5, // 100 KB max packet frame size
+  pingTimeout: 20000,
+  pingInterval: 25000
+});
 const PORT = process.env.PORT || 3000;
 
 const RANKS = ['REGULAR', 'BOT', 'VIP_DIAMOND', 'MODERATOR', 'OWNER'];
@@ -31,9 +38,26 @@ const isStaff = (u) => u && (u.rank === 'MODERATOR' || u.rank === 'OWNER');
 const now = () => Date.now();
 const hhmm = () => new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
-const online = new Map();       // userId -> { socketId, roomId }
-const lastSent = new Map();     // userId -> { at, text }
-const registerAttempts = new Map(); // (deviceHash or IP) -> [timestamp]
+function getClientIp(reqOrSocket) {
+  const headers = reqOrSocket.headers || reqOrSocket.handshake?.headers || {};
+  const cf = headers['cf-connecting-ip'];
+  if (cf) return String(cf).trim();
+  const xf = headers['x-forwarded-for'];
+  if (xf) {
+    const first = String(xf).split(',')[0].trim();
+    if (first) return first;
+  }
+  return reqOrSocket.ip || reqOrSocket.handshake?.address || reqOrSocket.socket?.remoteAddress || '127.0.0.1';
+}
+
+const online = new Map();             // userId -> { socketId, roomId }
+const lastSent = new Map();           // userId -> { at, text }
+const registerAttempts = new Map();   // clientIp -> [timestamp]
+const guestIpAttempts = new Map();    // clientIp -> [timestamp]
+const ipSockets = new Map();          // clientIp -> Set<socketId>
+const MAX_SOCKETS_PER_IP = 10;
+const MAX_GLOBAL_GUESTS = 200;
+const GUEST_TTL_MS = 15 * 60 * 1000;  // 15 minutes max guest lifespan
 
 function publicUser(u) {
   return {
@@ -104,7 +128,7 @@ function makeMessage(u, roomId, text, extra = {}) {
 const quizBot = new QuizBot(io, store, makeMessage);
 quizBot.start();
 
-// Purge expired guest accounts (temporary, deleted 1 hour after creation).
+// Purge expired guest accounts (temporary, auto-deleted after 15 min TTL).
 setInterval(() => {
   const t = now();
   let changed = false;
@@ -119,7 +143,7 @@ setInterval(() => {
     }
   }
   if (changed) store.flush();
-}, 5 * 60 * 1000);
+}, 60 * 1000);
 
 const adminRouter = createAdminRouter({
   store, auth, online, io, quizBot, publicUser, roomsSummary, isStaff, rank, RANKS, now, makeMessage
@@ -208,9 +232,33 @@ app.get('/player/:videoId', (req, res) => {
 });
 
 io.use((socket, next) => {
-  const deviceHash = socket.handshake.query.deviceHash || '';
-  socket.deviceHash = deviceHash;
-  if (deviceHash && store.state.bannedDevices[deviceHash]) {
+  const clientIp = getClientIp(socket);
+  socket.clientIp = clientIp;
+
+  // 1. Connection Exhaustion Defense: max 10 concurrent active sockets per IP
+  const activeForIp = ipSockets.get(clientIp) || new Set();
+  if (activeForIp.size >= MAX_SOCKETS_PER_IP) {
+    return next(new Error('CONN_LIMIT: تم تجاوز الحد الأقصى للاتصالات المتزامنة من عنوانك'));
+  }
+  activeForIp.add(socket.id);
+  ipSockets.set(clientIp, activeForIp);
+
+  // 2. Validate deviceHash format (prevent malformed/oversized payloads)
+  let rawHash = socket.handshake.query.deviceHash || '';
+  if (typeof rawHash === 'string') {
+    rawHash = rawHash.trim();
+    if (rawHash.length < 8 || rawHash.length > 128 || !/^[a-zA-Z0-9_-]+$/.test(rawHash)) {
+      rawHash = '';
+    }
+  } else {
+    rawHash = '';
+  }
+  socket.deviceHash = rawHash;
+
+  // 3. Hardware device ban check
+  if (rawHash && store.state.bannedDevices[rawHash]) {
+    activeForIp.delete(socket.id);
+    if (activeForIp.size === 0) ipSockets.delete(clientIp);
     return next(new Error('DEVICE_BANNED: تم حظر عتاد هذا الجهاز نهائياً'));
   }
   next();
@@ -301,19 +349,46 @@ setInterval(() => {
 io.on('connection', (socket) => {
   socket.data.userId = null;
 
+  // Zombie socket / Slowloris defense: 20 seconds auth window
+  const authTimer = setTimeout(() => {
+    if (!socket.data.userId) {
+      try {
+        socket.emit('error_alert', { message: 'انتهت مهلة التحقق والمصادقة (Auth Timeout)' });
+        socket.disconnect(true);
+      } catch (e) {}
+    }
+  }, 20000);
+
   const currentUser = () => (socket.data.userId ? store.state.users[socket.data.userId] : null);
   const fail = (cb, message) => { if (typeof cb === 'function') cb({ ok: false, error: message }); };
 
   socket.on('register', ({ name, password, avatarUrl, guest } = {}, cb) => {
-    const clientKey = socket.deviceHash || socket.handshake.address || 'unknown';
+    const clientIp = socket.clientIp || getClientIp(socket);
     const nowTime = now();
-    const attempts = (registerAttempts.get(clientKey) || []).filter(t => nowTime - t < 60000);
+
+    // 1. IP Registration Rate Limiting (Max 3 accounts per 5 minutes per IP)
+    const attempts = (registerAttempts.get(clientIp) || []).filter(t => nowTime - t < 5 * 60 * 1000);
     if (attempts.length >= 3) {
-      return fail(cb, 'تم تجاوز حد محاولات التسجيل السريعة. يرجى الانتظار دقيقة.');
+      return fail(cb, 'تم تجاوز حد محاولات التسجيل من هذا العنوان. يرجى الانتظار 5 دقائق.');
     }
     attempts.push(nowTime);
-    registerAttempts.set(clientKey, attempts);
+    registerAttempts.set(clientIp, attempts);
 
+    // 2. Guest Flooding Shield
+    if (guest) {
+      const currentGuests = Object.values(store.state.users).filter(u => u.isGuest).length;
+      if (currentGuests >= MAX_GLOBAL_GUESTS) {
+        return fail(cb, 'وصل نظام حسابات الزوار للحد الأقصى حالياً، يرجى التسجيل بحساب رسمي.');
+      }
+      const guestAttempts = (guestIpAttempts.get(clientIp) || []).filter(t => nowTime - t < 10 * 60 * 1000);
+      if (guestAttempts.length >= 2) {
+        return fail(cb, 'تم تجاوز عدد حسابات الزائر المسموح بها من عنوانك مؤقتاً.');
+      }
+      guestAttempts.push(nowTime);
+      guestIpAttempts.set(clientIp, guestAttempts);
+    }
+
+    // 3. Hardware device limit (Max 5 accounts per deviceHash)
     if (socket.deviceHash) {
       const existing = store.state.deviceAccounts[socket.deviceHash] || [];
       if (existing.length >= 5) {
@@ -339,7 +414,7 @@ io.on('connection', (socket) => {
       customHexColor: isFirst ? null : AUTO_COLORS[Math.floor(Math.random() * AUTO_COLORS.length)], country: 'IQ',
       isMuted: process.env.AUTO_MUTE === 'true' ? !isFirst : false,
       isGhost: false, status: 'online',
-      isGuest, guestExpiresAt: isGuest ? now() + 3600000 : null,
+      isGuest, guestExpiresAt: isGuest ? now() + GUEST_TTL_MS : null,
       oldNames: [], createdAt: now(),
       devices: socket.deviceHash ? [socket.deviceHash] : []
     };
@@ -352,6 +427,7 @@ io.on('connection', (socket) => {
     const token = auth.newToken();
     store.state.tokens[token] = id;
     store.flush();
+    clearTimeout(authTimer);
     if (typeof cb === 'function') cb({ ok: true, token, user: publicUser(user) });
   });
 
@@ -375,6 +451,7 @@ io.on('connection', (socket) => {
     const newTok = token && store.state.tokens[token] ? token : auth.newToken();
     store.state.tokens[newTok] = user.id;
     store.flush();
+    clearTimeout(authTimer);
     if (typeof cb === 'function') cb({ ok: true, token: newTok, user: publicUser(user) });
   });
 
@@ -840,6 +917,14 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    clearTimeout(authTimer);
+    if (socket.clientIp) {
+      const activeForIp = ipSockets.get(socket.clientIp);
+      if (activeForIp) {
+        activeForIp.delete(socket.id);
+        if (activeForIp.size === 0) ipSockets.delete(socket.clientIp);
+      }
+    }
     const uid = socket.data.userId;
     if (uid && online.get(uid)?.socketId === socket.id) {
       const roomId = online.get(uid).roomId;

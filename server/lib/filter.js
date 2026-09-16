@@ -14,9 +14,20 @@ function escapeRegex(s) {
 }
 const BAD = new RegExp(BAD_WORDS.map(escapeRegex).join('|'), 'g');
 
+function sanitizeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+    .replace(/[\u200B-\u200D\uFEFF\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+}
+
 function check(text) {
   if (typeof text !== 'string') return { ok: false, reason: 'رسالة غير صالحة' };
-  const t = text.trim().slice(0, 500);
+  if (text.length > 1000) return { ok: false, reason: 'الرسالة طويلة جداً (الحد الأقصى 500 حرف)' };
+  const t = sanitizeHtml(text.trim()).slice(0, 500);
   if (!t) return { ok: false, reason: 'رسالة فارغة' };
   if (LINK.test(t) && !YOUTUBE.test(t)) return { ok: false, reason: 'الروابط ممنوعة في الشات' };
   if (PHONE.test(t)) return { ok: false, reason: 'أرقام الهواتف ممنوعة' };
