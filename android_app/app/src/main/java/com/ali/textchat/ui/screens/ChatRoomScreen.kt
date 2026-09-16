@@ -20,6 +20,11 @@ import androidx.compose.material.icons.automirrored.filled.Send as SendIcon
 import androidx.compose.material.icons.filled.*
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -85,6 +90,11 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
     var showRequests by remember { mutableStateOf(false) }
     var showAdminPanel by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var showAccount by remember { mutableStateOf(false) }
+    var showStatus by remember { mutableStateOf(false) }
+    var showPrivate by remember { mutableStateOf(false) }
+    var showPassword by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(ytId) { if (!ytId.isNullOrBlank()) ytVisible = true }
     val listState = rememberLazyListState()
@@ -189,7 +199,7 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
             }
             // Floating magenta head buttons (left edge) + rooms pill (right), over the chat — exact iqchat.top
             Column(Modifier.align(Alignment.TopStart).padding(6.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
-                HeadOption(Icons.Default.AccountCircle, 0) { showProfile = true }
+                HeadOption(Icons.Default.AccountCircle, 0) { showAccount = true }
                 HeadOption(Icons.Default.Email, 0) { socket.loadThreads(); showInbox = true }
                 HeadOption(Icons.Default.Notifications, notifications.size) { showNotifs = true }
                 HeadOption(Icons.Default.Article, 0) { socket.loadThreads(); showInbox = true }
@@ -251,6 +261,27 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
             socket.updateProfile(color, avatar, status, bio, age, gender, country) { _, _ -> }; showProfile = false
         }
     }
+    if (showAccount) me?.let { u ->
+        AccountPanelDialog(
+            me = u,
+            onDismiss = { showAccount = false },
+            onEditData = { showAccount = false; showProfile = true },
+            onEditStatus = { showAccount = false; showStatus = true },
+            onManageFriends = { showAccount = false; socket.loadRequests(); showRequests = true },
+            onPrivateSettings = { showAccount = false; showPrivate = true },
+            onChangePassword = { showAccount = false; showPassword = true },
+            onDeleteAccount = { showAccount = false; showDeleteConfirm = true },
+            onLogout = { showAccount = false; onLogout() }
+        )
+    }
+    if (showStatus) me?.let { u ->
+        StatusDialog(u, onDismiss = { showStatus = false }) { statusValue ->
+            socket.updateProfile(null, null, statusValue, null, null, null, null) { _, _ -> }; showStatus = false
+        }
+    }
+    if (showPrivate) PrivateSettingsDialog(onDismiss = { showPrivate = false }) { showPrivate = false }
+    if (showPassword) PasswordDialog(onDismiss = { showPassword = false }) { showPassword = false }
+    if (showDeleteConfirm) DeleteAccountDialog(onDismiss = { showDeleteConfirm = false }, onConfirm = { showDeleteConfirm = false; onLogout() })
     if (showNotifs) NotificationsDialog(notifications, onClear = { socket.clearNotifications(); showNotifs = false }, onDismiss = { showNotifs = false })
     if (showInbox) InboxDialog(threads, onPick = { t ->
         showInbox = false
@@ -277,6 +308,197 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
         )
     }
     privTarget?.let { t -> PrivateChatDialog(socket, t, onDismiss = { privTarget = null }) }
+}
+
+// ---- Account panel (حساب) + settings menu, exact iqchat.top ----
+
+@Composable
+private fun AccountPanelDialog(
+    me: ChatUser,
+    onDismiss: () -> Unit,
+    onEditData: () -> Unit,
+    onEditStatus: () -> Unit,
+    onManageFriends: () -> Unit,
+    onPrivateSettings: () -> Unit,
+    onChangePassword: () -> Unit,
+    onDeleteAccount: () -> Unit,
+    onLogout: () -> Unit
+) {
+    Dialog(onDismiss) {
+        Column(Modifier.clip(RoundedCornerShape(10.dp)).background(Color.White).fillMaxWidth(0.94f).heightIn(max = 620.dp)) {
+            // Magenta header with avatar + name + close
+            Box(Modifier.fillMaxWidth().background(BcAccent).padding(14.dp)) {
+                Icon(Icons.Default.Close, "إغلاق", tint = Color.White, modifier = Modifier.align(Alignment.TopStart).size(26.dp).clickable { onDismiss() })
+                Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically) {
+                    Text(me.name, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(10.dp))
+                    Box(Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.25f)), contentAlignment = Alignment.Center) {
+                        val loader = com.ali.textchat.ui.util.svgCapableLoader(androidx.compose.ui.platform.LocalContext.current)
+                        if (me.avatarUrl.isNotBlank()) coil.compose.AsyncImage(me.avatarUrl, null, imageLoader = loader, modifier = Modifier.fillMaxSize())
+                        else Text(me.name.take(1), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            Row(Modifier.fillMaxWidth().background(Color.White), horizontalArrangement = Arrangement.End) {
+                Text("حساب", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                    modifier = Modifier.background(BcAccent).padding(horizontal = 22.dp, vertical = 8.dp))
+            }
+            Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+                AccountRow(Icons.Default.Badge, "تحرير البيانات", onEditData)
+                AccountRow(Icons.Default.HelpOutline, "تعديل الحالة", onEditStatus)
+                AccountRow(Icons.Default.PersonAdd, "إدارة أصدقاء", onManageFriends)
+                AccountRow(Icons.Default.Block, "إدارة التجاهل", onClick = { })
+                AccountRow(Icons.AutoMirrored.Filled.Chat, "إعدادات خاصة", onPrivateSettings)
+                AccountRow(Icons.Default.VpnKey, "تغيير الباسوورد", onChangePassword)
+                AccountRow(Icons.Default.Delete, "الغاء الاشتراك", onDeleteAccount, danger = true)
+                AccountRow(Icons.AutoMirrored.Filled.Logout, "تسجيل خروج", onLogout)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountRow(icon: ImageVector, label: String, onClick: () -> Unit, danger: Boolean = false) {
+    val c = if (danger) Color(0xFFD32F2F) else Color(0xFF333333)
+    Column {
+        Row(
+            Modifier.fillMaxWidth().clickable { onClick() }.padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End
+        ) {
+            Text(label, color = c, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            Spacer(Modifier.width(12.dp))
+            Icon(icon, null, tint = c, modifier = Modifier.size(20.dp))
+        }
+        HorizontalDivider(color = BcInputBorder)
+    }
+}
+
+// Magenta strip + X header used by the small settings dialogs
+@Composable
+private fun MagentaDialogHeader(onClose: () -> Unit) {
+    Box(Modifier.fillMaxWidth().background(BcAccent).padding(10.dp)) {
+        Icon(Icons.Default.Close, "إغلاق", tint = Color.White, modifier = Modifier.align(Alignment.TopEnd).size(24.dp).clickable { onClose() })
+    }
+}
+
+@Composable
+private fun SaveCancelRow(onCancel: () -> Unit, onSave: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.End) {
+        Box(Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xFFE53935)).clickable { onCancel() }.padding(horizontal = 22.dp, vertical = 10.dp)) {
+            Text("إلغاء", color = Color.White, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.width(10.dp))
+        Row(Modifier.clip(RoundedCornerShape(6.dp)).background(BcAccent).clickable { onSave() }.padding(horizontal = 22.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Save, null, tint = Color.White, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("حفظ", color = Color.White, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun StatusDialog(me: ChatUser, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+    val options = listOf("online" to "متصل", "away" to "بعيد", "busy" to "مشغول")
+    var picked by remember { mutableStateOf("online") }
+    Dialog(onDismiss) {
+        Column(Modifier.clip(RoundedCornerShape(10.dp)).background(Color.White).fillMaxWidth(0.92f)) {
+            MagentaDialogHeader(onDismiss)
+            Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.End) {
+                Text("تعديل الحالة", color = Color(0xFF333333), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(10.dp))
+                options.forEach { (k, label) ->
+                    Row(Modifier.fillMaxWidth().clickable { picked = k }.padding(vertical = 8.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                        Text(label, color = if (picked == k) BcAccent else Color(0xFF555555), fontWeight = if (picked == k) FontWeight.Bold else FontWeight.Normal)
+                        Spacer(Modifier.width(8.dp))
+                        if (picked == k) Icon(Icons.Default.CheckCircle, null, tint = BcAccent, modifier = Modifier.size(18.dp))
+                    }
+                }
+                SaveCancelRow(onCancel = onDismiss, onSave = { onSave(picked) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun PrivateSettingsDialog(onDismiss: () -> Unit, onSave: () -> Unit) {
+    var on by remember { mutableStateOf(true) }
+    Dialog(onDismiss) {
+        Column(Modifier.clip(RoundedCornerShape(10.dp)).background(Color.White).fillMaxWidth(0.92f)) {
+            MagentaDialogHeader(onDismiss)
+            Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.End) {
+                Text("دردشة خاصة", color = Color(0xFF333333), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).background(BcInputFill).border(1.dp, BcInputBorder, RoundedCornerShape(6.dp)).clickable { on = !on }.padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.ArrowDropDown, null, tint = Color(0xFF777777))
+                    Text(if (on) "تشغيل" else "إيقاف", color = Color(0xFF333333))
+                }
+                SaveCancelRow(onCancel = onDismiss, onSave = onSave)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PasswordDialog(onDismiss: () -> Unit, onSave: () -> Unit) {
+    var p1 by remember { mutableStateOf("") }
+    var p2 by remember { mutableStateOf("") }
+    Dialog(onDismiss) {
+        Column(Modifier.clip(RoundedCornerShape(10.dp)).background(Color.White).fillMaxWidth(0.92f)) {
+            MagentaDialogHeader(onDismiss)
+            Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.End) {
+                Text("تغيير الباسوورد", color = Color(0xFF333333), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(10.dp))
+                SettingsField(p1, "الرمز الجديد", isPassword = true) { p1 = it }
+                Spacer(Modifier.height(8.dp))
+                SettingsField(p2, "تأكيد الرمز", isPassword = true) { p2 = it }
+                SaveCancelRow(onCancel = onDismiss, onSave = onSave)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DeleteAccountDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    Dialog(onDismiss) {
+        Column(Modifier.clip(RoundedCornerShape(10.dp)).background(Color.White).fillMaxWidth(0.92f)) {
+            MagentaDialogHeader(onDismiss)
+            Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.End) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("الغاء الاشتراك", color = Color(0xFF333333), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(6.dp))
+                    Icon(Icons.Default.Warning, null, tint = Color(0xFFE53935), modifier = Modifier.size(20.dp))
+                }
+                Spacer(Modifier.height(8.dp))
+                Text("هل انت متأكد بأنك تريد الغاء الاشتراك؟", color = Color(0xFF666666), fontSize = 13.sp)
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    Box(Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xFFE53935)).clickable { onDismiss() }.padding(horizontal = 22.dp, vertical = 10.dp)) {
+                        Text("إلغاء", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Row(Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xFFE53935)).clickable { onConfirm() }.padding(horizontal = 22.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Delete, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("حذف", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsField(value: String, hint: String, isPassword: Boolean = false, onValueChange: (String) -> Unit) {
+    Box(
+        Modifier.fillMaxWidth().height(44.dp).background(BcInputFill, RoundedCornerShape(6.dp))
+            .border(1.dp, BcInputBorder, RoundedCornerShape(6.dp)).padding(horizontal = 12.dp),
+        contentAlignment = Alignment.CenterEnd
+    ) {
+        if (value.isEmpty()) Text(hint, color = Color(0xFF9E9E9E), fontSize = 14.sp)
+        BasicTextField(value, onValueChange, singleLine = true,
+            visualTransformation = if (isPassword) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+            textStyle = TextStyle(color = Color(0xFF181818), fontSize = 15.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End), modifier = Modifier.fillMaxWidth())
+    }
 }
 
 // Magenta round floating button (iqchat head-option style)
