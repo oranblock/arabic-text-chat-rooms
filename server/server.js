@@ -40,14 +40,22 @@ const hhmm = () => new Date().toLocaleTimeString('en-GB', { hour: '2-digit', min
 
 function getClientIp(reqOrSocket) {
   const headers = reqOrSocket.headers || reqOrSocket.handshake?.headers || {};
+
+  // 1. Cloudflare's verified connecting IP header (tamper-proof via Cloudflare edge)
   const cf = headers['cf-connecting-ip'];
   if (cf) return String(cf).trim();
-  const xf = headers['x-forwarded-for'];
-  if (xf) {
-    const first = String(xf).split(',')[0].trim();
+
+  // 2. Direct remote address
+  const rawRemote = reqOrSocket.handshake?.address || reqOrSocket.socket?.remoteAddress || reqOrSocket.ip || '127.0.0.1';
+
+  // 3. Only trust X-Forwarded-For if connection strictly comes from local reverse proxy (Nginx/Cloudflared)
+  const isLocalProxy = rawRemote.includes('127.0.0.1') || rawRemote.includes('::1') || rawRemote === 'localhost';
+  if (isLocalProxy && headers['x-forwarded-for']) {
+    const first = String(headers['x-forwarded-for']).split(',')[0].trim();
     if (first) return first;
   }
-  return reqOrSocket.ip || reqOrSocket.handshake?.address || reqOrSocket.socket?.remoteAddress || '127.0.0.1';
+
+  return rawRemote;
 }
 
 const online = new Map();             // userId -> { socketId, roomId }
@@ -58,6 +66,20 @@ const ipSockets = new Map();          // clientIp -> Set<socketId>
 const MAX_SOCKETS_PER_IP = 10;
 const MAX_GLOBAL_GUESTS = 200;
 const GUEST_TTL_MS = 15 * 60 * 1000;  // 15 minutes max guest lifespan
+
+// Self-healing periodic cleanup of ipSockets to prevent any zombie tracking leakage
+setInterval(() => {
+  for (const [ip, set] of ipSockets.entries()) {
+    for (const sid of set) {
+      if (!io.sockets.sockets.has(sid)) {
+        set.delete(sid);
+      }
+    }
+    if (set.size === 0) {
+      ipSockets.delete(ip);
+    }
+  }
+}, 30000);
 
 function publicUser(u) {
   return {
