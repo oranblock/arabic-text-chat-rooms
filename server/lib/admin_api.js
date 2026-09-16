@@ -7,7 +7,7 @@
 
 const express = require('express');
 
-function createAdminRouter({ store, auth, online, io, quizBot, publicUser, roomsSummary, isStaff, rank, RANKS, now, makeMessage }) {
+function createAdminRouter({ store, auth, online, io, quizBot, publicUser, roomsSummary, isStaff, rank, RANKS, now, makeMessage, getLinkedAccounts }) {
   const router = express.Router();
 
   // Middleware to authenticate staff tokens (Bearer header or query ?token=)
@@ -62,18 +62,24 @@ function createAdminRouter({ store, auth, online, io, quizBot, publicUser, rooms
       return {
         id: u.id,
         name: u.name,
+        displayName: u.displayName || u.name,
         rank: u.rank,
         customHexColor: u.customHexColor || null,
         country: u.country || 'IQ',
         isMuted: !!u.isMuted,
         isGhost: !!u.isGhost,
+        lockPrivate: !!u.lockPrivate,
+        muteNotifications: !!u.muteNotifications,
         status: u.status || 'online',
         online: !!p,
         currentRoom: p ? p.roomId : null,
         devicesCount: (u.devices || []).length,
         devices: u.devices || [],
+        lastIp: u.lastIp || '',
+        oldNames: u.oldNames || [],
+        linkedAccounts: getLinkedAccounts ? getLinkedAccounts(u) : [],
         createdAt: u.createdAt || 0,
-        quizScore: quizBot.scores.get(u.id) || 0
+        quizScore: (quizBot && quizBot.scores) ? (quizBot.scores.get(u.id) || 0) : 0
       };
     });
 
@@ -85,11 +91,13 @@ function createAdminRouter({ store, auth, online, io, quizBot, publicUser, rooms
 
     // Leaderboard
     const scores = [];
-    for (const [uid, score] of quizBot.scores.entries()) {
-      const u = store.state.users[uid];
-      if (u) scores.push({ userId: uid, name: u.name, rank: u.rank, score });
+    if (quizBot && quizBot.scores) {
+      for (const [uid, score] of quizBot.scores.entries()) {
+        const u = store.state.users[uid];
+        if (u) scores.push({ userId: uid, name: u.displayName || u.name, rank: u.rank, score });
+      }
+      scores.sort((a, b) => b.score - a.score);
     }
-    scores.sort((a, b) => b.score - a.score);
 
     // Recent messages across all rooms
     const recentMessages = [];
@@ -106,14 +114,19 @@ function createAdminRouter({ store, auth, online, io, quizBot, publicUser, rooms
         onlineCount: online.size,
         roomsCount: Object.keys(store.state.rooms).length,
         bannedCount: bannedList.length,
-        botActive: !!quizBot.timer
+        botActive: !!quizBot?.timer
       },
       users: allUsers,
       rooms: roomsSummary(),
       banned: bannedList,
       scores: scores.slice(0, 10),
-      recentMessages: recentMessages.slice(0, 40)
+      recentMessages: recentMessages.slice(0, 40),
+      adminLogs: (store.state.adminLogs || []).slice(0, 100)
     });
+  });
+
+  router.get('/logs', requireStaff, (req, res) => {
+    res.json({ ok: true, logs: store.state.adminLogs || [] });
   });
 
   // Bulk actions on multiple users simultaneously
@@ -178,12 +191,13 @@ function createAdminRouter({ store, auth, online, io, quizBot, publicUser, rooms
 
   // Single user action
   router.post('/user-action', requireStaff, (req, res) => {
-    const { action, targetUserId, newRank, deviceHash } = req.body || {};
+    const { action, targetUserId, newRank, deviceHash, reason } = req.body || {};
     const me = req.adminUser;
 
     if (action === 'unban_device') {
       if (deviceHash && store.state.bannedDevices[deviceHash]) {
         delete store.state.bannedDevices[deviceHash];
+        store.logAdmin(me, 'unban_device', null, `إلغاء حظر جهاز: ${deviceHash}`);
         store.flush();
         return res.json({ ok: true });
       }
@@ -198,15 +212,28 @@ function createAdminRouter({ store, auth, online, io, quizBot, publicUser, rooms
 
     const p = online.get(target.id);
     switch (action) {
-      case 'mute': target.isMuted = true; break;
-      case 'unmute': target.isMuted = false; break;
-      case 'ghost': target.isGhost = true; break;
-      case 'unghost': target.isGhost = false; break;
+      case 'mute':
+        target.isMuted = true;
+        store.logAdmin(me, 'mute', target, reason || 'كتم المستخدم');
+        break;
+      case 'unmute':
+        target.isMuted = false;
+        store.logAdmin(me, 'unmute', target, 'إلغاء الكتم');
+        break;
+      case 'ghost':
+        target.isGhost = true;
+        store.logAdmin(me, 'ghost', target, 'تفعيل وضع الشبح');
+        break;
+      case 'unghost':
+        target.isGhost = false;
+        store.logAdmin(me, 'unghost', target, 'إلغاء وضع الشبح');
+        break;
       case 'kick':
         if (p) {
           io.to(p.socketId).emit('force_disconnect', { reason: 'تم طردك بواسطة الإدارة' });
           io.sockets.sockets.get(p.socketId)?.disconnect(true);
         }
+        store.logAdmin(me, 'kick', target, reason || 'طرد المستخدم');
         break;
       case 'ban_device':
         for (const d of (target.devices || [])) store.state.bannedDevices[d] = { by: me.name, at: now() };
@@ -214,10 +241,36 @@ function createAdminRouter({ store, auth, online, io, quizBot, publicUser, rooms
           io.to(p.socketId).emit('force_disconnect', { reason: 'تم حظر جهازك نهائياً من قبل الإدارة' });
           io.sockets.sockets.get(p.socketId)?.disconnect(true);
         }
+        store.logAdmin(me, 'ban_device', target, 'حظر الجهاز نهائياً');
         break;
+      case 'delete_user':
+        if (me.rank !== 'OWNER' && me.rank !== 'ADMIN') return res.status(403).json({ ok: false, error: 'حذف الحساب متاح للمدير والمالك فقط' });
+        if (p) {
+          io.to(p.socketId).emit('force_disconnect', { reason: 'تم حذف حسابك نهائياً من قبل الإدارة' });
+          io.sockets.sockets.get(p.socketId)?.disconnect(true);
+        }
+        store.logAdmin(me, 'delete_user', target, 'حذف الحساب نهائياً عبر لوحة الإدارة');
+        delete store.state.users[target.id];
+        delete store.state.names[(target.name || '').toLowerCase()];
+        for (const [tok, uid] of Object.entries(store.state.tokens)) {
+          if (uid === target.id) delete store.state.tokens[tok];
+        }
+        store.flush();
+        for (const r of Object.keys(store.state.rooms)) {
+          const usersInRoom = Object.values(store.state.users).filter(u => {
+            const on = online.get(u.id);
+            return on && on.roomId === r && !u.isGhost;
+          }).map(u => publicUser(u));
+          io.to(r).emit('users', { roomId: r, users: usersInRoom });
+        }
+        return res.json({ ok: true, deleted: true });
       case 'promote':
         if (newRank === 'MODERATOR' && me.rank !== 'OWNER') return res.status(403).json({ ok: false, error: 'ترقية المشرفين للمالك فقط' });
-        if (RANKS.includes(newRank)) target.rank = newRank;
+        if (RANKS.includes(newRank)) {
+          const oldRank = target.rank;
+          target.rank = newRank;
+          store.logAdmin(me, 'promote', target, `ترقية من ${oldRank} إلى ${newRank}`);
+        }
         break;
       default:
         return res.status(400).json({ ok: false, error: 'إجراء غير معروف' });

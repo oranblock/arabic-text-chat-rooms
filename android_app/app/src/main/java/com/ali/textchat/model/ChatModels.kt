@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class UserRank(val titleAr: String, val badge: String) {
     OWNER("صاحب التطبيق", "👑"),
+    ADMIN("مدير", "🌟"),
     MODERATOR("مشرف عام", "🛡️"),
     VIP_DIAMOND("عضو مميز", "💎"),
     REGULAR("عضو متفاعل", "👤"),
@@ -26,7 +27,10 @@ data class ChatUser(
     val gender: String = "",
     val country: String = "العراق",
     val status: String = "online",
-    val isGuest: Boolean = false
+    val isGuest: Boolean = false,
+    val lockPrivate: Boolean = false,
+    val muteNotifications: Boolean = false,
+    val oldNames: List<String> = emptyList()
 )
 
 @Serializable

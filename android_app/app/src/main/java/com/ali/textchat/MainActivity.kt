@@ -86,11 +86,26 @@ class MainActivity : ComponentActivity() {
                                     Session.saveServerUrl(context, newUrl)
                                     currentServerUrl = newUrl
                                 },
-                                onLogin = { n, p -> busy = true; authError = null; socket.login(n, p, null) { ok, r -> afterAuth(ok, r) } },
-                                onRegister = { n, p, displayName, age, gender, country, status ->
+                                onLogin = { n, p, ghost, lockP, muteN ->
                                     busy = true; authError = null
-                                    socket.register(n, p) { ok, r ->
-                                        if (ok) socket.updateProfile(null, null, status.ifBlank { null }, null, age.toIntOrNull(), gender, country.ifBlank { null }, displayName.ifBlank { null }) { _, _ -> }
+                                    socket.login(n, p, null, isGhost = ghost, lockPrivate = lockP, muteNotifications = muteN) { ok, r -> afterAuth(ok, r) }
+                                },
+                                onRegister = { n, p, displayName, age, gender, country, status, ghost, lockP, muteN ->
+                                    busy = true; authError = null
+                                    socket.register(
+                                        name = n,
+                                        password = p,
+                                        age = age.toIntOrNull(),
+                                        gender = gender,
+                                        country = country.ifBlank { null },
+                                        bio = status.ifBlank { null },
+                                        isGhost = ghost,
+                                        lockPrivate = lockP,
+                                        muteNotifications = muteN
+                                    ) { ok, r ->
+                                        if (ok && displayName.isNotBlank()) {
+                                            socket.updateProfile(null, null, null, null, null, null, null, displayName.trim()) { _, _ -> }
+                                        }
                                         afterAuth(ok, r)
                                     }
                                 },

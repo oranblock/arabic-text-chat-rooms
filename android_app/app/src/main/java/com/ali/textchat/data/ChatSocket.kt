@@ -139,21 +139,74 @@ class ChatSocket(
         }
     }
 
-    fun register(name: String, password: String, guest: Boolean = false, onResult: (Boolean, String?) -> Unit) {
+    fun register(
+        name: String,
+        password: String,
+        guest: Boolean = false,
+        age: Int? = null,
+        gender: String? = null,
+        country: String? = null,
+        bio: String? = null,
+        isGhost: Boolean = false,
+        lockPrivate: Boolean = false,
+        muteNotifications: Boolean = false,
+        onResult: (Boolean, String?) -> Unit
+    ) {
         ensureSocket {
-            socket?.emit("register", JSONObject().apply { put("name", name); put("password", password); if (guest) put("guest", true) },
-                Ack { res -> handleAuth(res.firstOrNull(), onResult) })
+            val payload = JSONObject().apply {
+                put("name", name)
+                put("password", password)
+                if (guest) put("guest", true)
+                if (age != null) put("age", age)
+                if (!gender.isNullOrBlank()) put("gender", gender)
+                if (!country.isNullOrBlank()) put("country", country)
+                if (!bio.isNullOrBlank()) put("bio", bio)
+                put("isGhost", isGhost)
+                put("lockPrivate", lockPrivate)
+                put("muteNotifications", muteNotifications)
+            }
+            socket?.emit("register", payload, Ack { res -> handleAuth(res.firstOrNull(), onResult) })
         }
     }
 
-    fun login(name: String?, password: String?, savedToken: String?, onResult: (Boolean, String?) -> Unit) {
+    fun login(
+        name: String?,
+        password: String?,
+        savedToken: String?,
+        isGhost: Boolean = false,
+        lockPrivate: Boolean = false,
+        muteNotifications: Boolean = false,
+        onResult: (Boolean, String?) -> Unit
+    ) {
         ensureSocket {
             val payload = JSONObject().apply {
                 if (name != null) put("name", name)
                 if (password != null) put("password", password)
                 if (savedToken != null) put("token", savedToken)
+                put("isGhost", isGhost)
+                put("lockPrivate", lockPrivate)
+                put("muteNotifications", muteNotifications)
             }
             socket?.emit("login", payload, Ack { res -> handleAuth(res.firstOrNull(), onResult) })
+        }
+    }
+
+    fun userInspect(targetUserId: String, onResult: (Boolean, List<String>, List<ChatUser>, String?) -> Unit) {
+        ensureSocket {
+            val payload = JSONObject().apply { put("targetUserId", targetUserId) }
+            socket?.emit("user_inspect", payload, Ack { res ->
+                val o = res.firstOrNull() as? JSONObject
+                if (o?.optBoolean("ok") == true) {
+                    val oldNamesArr = o.optJSONArray("oldNames")
+                    val oldNames = (0 until (oldNamesArr?.length() ?: 0)).map { oldNamesArr!!.getString(it) }
+                    val linkedArr = o.optJSONArray("linkedAccounts")
+                    val linked = (0 until (linkedArr?.length() ?: 0)).map { parseUser(linkedArr!!.getJSONObject(it)) }
+                    val ip = o.optString("lastIp")
+                    onResult(true, oldNames, linked, ip)
+                } else {
+                    onResult(false, emptyList(), emptyList(), o?.optString("error"))
+                }
+            })
         }
     }
 
@@ -392,22 +445,29 @@ class ChatSocket(
         _status.value = Status.DISCONNECTED
     }
 
-    private fun parseUser(o: JSONObject) = ChatUser(
-        id = o.optString("id"),
-        name = o.optString("name"),
-        avatarUrl = o.optString("avatarUrl"),
-        rank = runCatching { UserRank.valueOf(o.optString("rank", "REGULAR")) }.getOrDefault(UserRank.REGULAR),
-        customHexColor = o.optString("customHexColor").takeIf { it.isNotBlank() && it != "null" },
-        deviceId = deviceHash,
-        isMuted = o.optBoolean("isMuted"),
-        isGhost = o.optBoolean("isGhost"),
-        bio = o.optString("bio"),
-        age = o.optInt("age").takeIf { it > 0 },
-        gender = o.optString("gender"),
-        country = o.optString("country", "العراق"),
-        status = o.optString("status", "online"),
-        isGuest = o.optBoolean("isGuest")
-    )
+    private fun parseUser(o: JSONObject): ChatUser {
+        val oldNamesArr = o.optJSONArray("oldNames")
+        val oldNamesList = (0 until (oldNamesArr?.length() ?: 0)).map { oldNamesArr!!.getString(it) }
+        return ChatUser(
+            id = o.optString("id"),
+            name = o.optString("name"),
+            avatarUrl = o.optString("avatarUrl"),
+            rank = runCatching { UserRank.valueOf(o.optString("rank", "REGULAR")) }.getOrDefault(UserRank.REGULAR),
+            customHexColor = o.optString("customHexColor").takeIf { it.isNotBlank() && it != "null" },
+            deviceId = deviceHash,
+            isMuted = o.optBoolean("isMuted"),
+            isGhost = o.optBoolean("isGhost"),
+            bio = o.optString("bio"),
+            age = o.optInt("age").takeIf { it > 0 },
+            gender = o.optString("gender"),
+            country = o.optString("country", "العراق"),
+            status = o.optString("status", "online"),
+            isGuest = o.optBoolean("isGuest"),
+            lockPrivate = o.optBoolean("lockPrivate"),
+            muteNotifications = o.optBoolean("muteNotifications"),
+            oldNames = oldNamesList
+        )
+    }
 
     private fun parseUsers(a: JSONArray) = (0 until a.length()).map { parseUser(a.getJSONObject(it)) }
 

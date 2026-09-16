@@ -228,6 +228,7 @@
       <button class="tab" onclick="switchTab('broadcast', this)">📢 الإذاعة والإعلانات</button>
       <button class="tab" onclick="switchTab('quiz', this)">🤖 إدارة البوتات واستيراد JSON وتوزيع الغرف</button>
       <button class="tab" onclick="switchTab('banned', this)">⛔ عتاد الأجهزة المحظورة</button>
+      <button class="tab" onclick="switchTab('logs', this)">📜 سجل الرقابة والإدارة</button>
       <button class="tab" onclick="switchTab('terminal', this)">💻 موجه الأوامر السريع (CLI)</button>
     </div>
 
@@ -486,7 +487,34 @@
       </div>
     </div>
 
-    <!-- TAB 6: Terminal Console (CLI) -->
+    <!-- TAB 6: Admin Audit Logs -->
+    <div id="tab-logs" class="section-card" style="display: none;">
+      <div class="section-header">
+        <div class="section-title">📜 سجل العمليات الإدارية والرقابة (Audit Logs)</div>
+        <button class="btn btn-outline" onclick="fetchData()">🔄 تحديث السجل</button>
+      </div>
+      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">
+        يسجل هذا القسم كافة الإجراءات الإدارية المتخذة (كتم، طرد، حظر جهاز، تغيير رتبة، قفل غرف، إذاعة عامة، حذف حسابات) مع هوية المسؤول وتوقيت التنفيذ والتفاصيل.
+      </p>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>التوقيت</th>
+              <th>المسؤول</th>
+              <th>نوع الإجراء</th>
+              <th>العضو المستهدف</th>
+              <th>التفاصيل والسبب</th>
+            </tr>
+          </thead>
+          <tbody id="logs-tbody">
+            <!-- Populated via JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 7: Terminal Console (CLI) -->
     <div id="tab-terminal" class="section-card" style="display: none;">
       <div class="section-header">
         <div class="section-title">💻 موجه الأوامر السريع (Admin CLI Terminal)</div>
@@ -587,6 +615,7 @@
           renderRooms();
           renderLeaderboard();
           renderBanned();
+          renderLogs();
           fetchBotsData();
         }
       } catch (e) {
@@ -662,7 +691,10 @@
               <span style="font-size: 12px; color: var(--text-muted);">${u.devicesCount} جهاز</span>
             </td>
             <td>
-              <div style="display: flex; gap: 6px;">
+              <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <button class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;" onclick="inspectUser('${u.id}')">
+                  🔍 فحص
+                </button>
                 <button class="btn ${u.isMuted ? 'btn-success' : 'btn-warning'}" style="padding: 4px 8px; font-size: 11px;" onclick="userAction('${u.id}', '${u.isMuted ? 'unmute' : 'mute'}')">
                   ${u.isMuted ? '🔊 فك كتم' : '🔇 كتم'}
                 </button>
@@ -674,6 +706,9 @@
                 </button>
                 <button class="btn btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="userAction('${u.id}', 'ban_device')">
                   ⛔ حظر جهاز
+                </button>
+                <button class="btn btn-danger" style="padding: 4px 8px; font-size: 11px; background: #7f1d1d;" onclick="deleteUser('${u.id}', '${(u.displayName || u.name).replace(/'/g, "\\'")}')">
+                  🗑️ حذف
                 </button>
               </div>
             </td>
@@ -1319,13 +1354,136 @@
       }
     }
 
+    function renderLogs() {
+      if (!state.data || !state.data.adminLogs) return;
+      const tbody = document.getElementById('logs-tbody');
+      if (!tbody) return;
+      const logs = state.data.adminLogs;
+      if (!logs.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 18px;">لا توجد سجلات إدارية مسجلة حتى الآن</td></tr>';
+        return;
+      }
+      tbody.innerHTML = logs.map(l => {
+        const timeStr = new Date(l.at).toLocaleString('ar-IQ');
+        const actionLabels = {
+          mute: '🔇 كتم', unmute: '🔊 فك كتم', ghost: '👻 تفعيل شبح', unghost: '👁️ إلغاء شبح',
+          kick: '🚪 طرد', ban_device: '⛔ حظر جهاز', unban_device: '✅ فك حظر جهاز',
+          promote: '⭐ تغيير رتبة', delete_user: '🗑️ حذف حساب', lock_room: '🔒 قفل غرفة',
+          broadcast: '📢 إذاعة عامة', trigger_quiz: '🎯 تشغيل سؤال'
+        };
+        const label = actionLabels[l.action] || l.action;
+        return `
+          <tr>
+            <td style="font-size: 12px; color: var(--text-muted);">${timeStr}</td>
+            <td><b>${l.adminName || 'إداري'}</b> <span style="font-size: 11px; color: var(--text-muted);">(${l.adminRank || ''})</span></td>
+            <td><span class="badge badge-reg">${label}</span></td>
+            <td>${l.targetName ? `<b>${l.targetName}</b> <span style="font-size: 11px; color: var(--text-muted);">(${l.targetId || ''})</span>` : '-'}</td>
+            <td style="font-size: 12px;">${l.detail || '-'}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function inspectUser(uid) {
+      const u = state.data?.users?.find(x => x.id === uid);
+      if (!u) return alert('لم يتم العثور على العضو');
+
+      const oldNamesHtml = (u.oldNames && u.oldNames.length)
+        ? u.oldNames.map(n => `<span class="badge" style="background:#334155; color:#fff; margin:2px;">${n}</span>`).join(' ')
+        : '<span style="color:var(--text-muted); font-size:12px;">لا يوجد تغيير سابق للاسم</span>';
+
+      const linkedHtml = (u.linkedAccounts && u.linkedAccounts.length)
+        ? u.linkedAccounts.map(la => `
+            <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #1e293b; font-size:12px;">
+              <span><b>${la.name}</b> (${la.rank})</span>
+              <span style="color:var(--text-muted); font-family:monospace;">${la.id}</span>
+            </div>
+          `).join('')
+        : '<span style="color:var(--text-muted); font-size:12px;">لا توجد حسابات مرتبطة على نفس الجهاز أو الـ IP</span>';
+
+      const devicesHtml = (u.devices && u.devices.length)
+        ? u.devices.map(d => `<code style="display:block; font-size:11px; color:#94a3b8; background:#0f172a; padding:4px 6px; border-radius:4px; margin:2px 0; word-break:break-all;">${d}</code>`).join('')
+        : '<span style="color:var(--text-muted); font-size:12px;">غير مسجل</span>';
+
+      const modalHtml = `
+        <div id="inspect-modal-backdrop" style="position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:9999; display:flex; align-items:center; justify-content:center; padding:16px;">
+          <div style="background:#111827; border:1px solid var(--card-border); border-radius:14px; max-width:560px; width:100%; max-height:90vh; overflow-y:auto; padding:22px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.5);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid var(--card-border); padding-bottom:10px;">
+              <h3 style="margin:0; font-size:18px; color:var(--gold);">🔍 فحص حساب: ${u.displayName || u.name}</h3>
+              <button class="btn btn-outline" style="padding:4px 10px; font-size:12px;" onclick="closeInspectModal()">✕ إغلاق</button>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:13px; margin-bottom:14px;">
+              <div><b>المعرف (ID):</b> <span style="color:var(--text-muted); font-family:monospace;">${u.id}</span></div>
+              <div><b>الرتبة:</b> <span class="badge badge-reg">${u.rank}</span></div>
+              <div><b>اسم التسجيل:</b> ${u.name}</div>
+              <div><b>اسم الظهور:</b> ${u.displayName || u.name}</div>
+              <div><b>عنوان الـ IP:</b> <span style="font-family:monospace; color:#38bdf8;">${u.lastIp || 'غير متوفر'}</span></div>
+              <div><b>الحالة:</b> ${u.online ? '🟢 متصل' : '⚪ غير متصل'}</div>
+              <div><b>قفل الخاص:</b> ${u.lockPrivate ? '🔒 مقفل' : '🔓 مفتوح'}</div>
+              <div><b>كتم الإشعارات:</b> ${u.muteNotifications ? '🔕 نعم' : '🔔 لا'}</div>
+            </div>
+            <div style="margin-bottom:14px; background:#0b1120; border:1px solid #1e293b; border-radius:8px; padding:10px;">
+              <div style="font-size:12px; font-weight:700; color:#38bdf8; margin-bottom:6px;">📜 سجل الأسماء السابقة (Old Names):</div>
+              <div>${oldNamesHtml}</div>
+            </div>
+            <div style="margin-bottom:14px; background:#0b1120; border:1px solid #1e293b; border-radius:8px; padding:10px;">
+              <div style="font-size:12px; font-weight:700; color:var(--gold); margin-bottom:6px;">👥 الحسابات المرتبطة على نفس الجهاز أو الـ IP (Multi-Accounts):</div>
+              <div>${linkedHtml}</div>
+            </div>
+            <div style="margin-bottom:16px; background:#0b1120; border:1px solid #1e293b; border-radius:8px; padding:10px;">
+              <div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:6px;">📱 بصمات الأجهزة المسجلة (Hardware Hashes):</div>
+              <div>${devicesHtml}</div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+              <button class="btn btn-warning" onclick="userAction('${u.id}', '${u.isMuted ? 'unmute' : 'mute'}'); closeInspectModal();">${u.isMuted ? '🔊 فك كتم' : '🔇 كتم'}</button>
+              <button class="btn btn-danger" onclick="userAction('${u.id}', 'ban_device'); closeInspectModal();">⛔ حظر الجهاز</button>
+              <button class="btn btn-danger" style="background:#7f1d1d;" onclick="deleteUser('${u.id}', '${(u.displayName || u.name).replace(/'/g, "\\'")}'); closeInspectModal();">🗑️ حذف الحساب نهائياً</button>
+            </div>
+          </div>
+        </div>
+      `;
+      let el = document.getElementById('inspect-modal-root');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'inspect-modal-root';
+        document.body.appendChild(el);
+      }
+      el.innerHTML = modalHtml;
+    }
+
+    function closeInspectModal() {
+      const el = document.getElementById('inspect-modal-root');
+      if (el) el.innerHTML = '';
+    }
+
+    async function deleteUser(uid, name) {
+      if (!confirm(`هل أنت متأكد تماماً من حذف حساب "${name}" نهائياً من قاعدة البيانات؟ لا يمكن التراجع عن هذا الإجراء!`)) return;
+      try {
+        const res = await fetch('/api/admin/user-action', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ action: 'delete_user', targetUserId: uid })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          alert('✅ تم حذف الحساب نهائياً بنجاح');
+          fetchData();
+        } else {
+          alert(data.error || 'فشل حذف الحساب');
+        }
+      } catch (e) {
+        alert('تعذر الاتصال بالسيرفر');
+      }
+    }
+
     function switchTab(tabId, btn) {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       btn.classList.add('active');
-      ['users', 'rooms', 'broadcast', 'quiz', 'banned', 'terminal'].forEach(id => {
+      ['users', 'rooms', 'broadcast', 'quiz', 'banned', 'terminal', 'logs'].forEach(id => {
         document.getElementById(`tab-${id}`).style.display = (id === tabId ? 'block' : 'none');
       });
       if (tabId === 'quiz') fetchBotsData();
+      if (tabId === 'logs') renderLogs();
     }
 
     // Auto-refresh every 5 seconds

@@ -34,11 +34,44 @@ const io = new Server(server, {
 });
 const PORT = process.env.PORT || 3000;
 
-const RANKS = ['REGULAR', 'BOT', 'VIP_DIAMOND', 'MODERATOR', 'OWNER'];
+const RANKS = ['REGULAR', 'BOT', 'VIP_DIAMOND', 'MODERATOR', 'ADMIN', 'OWNER'];
 const rank = (u) => (u ? RANKS.indexOf(u.rank) : -1);
-const isStaff = (u) => u && (u.rank === 'MODERATOR' || u.rank === 'OWNER');
+const isStaff = (u) => u && (u.rank === 'MODERATOR' || u.rank === 'ADMIN' || u.rank === 'OWNER');
+const isVip = (u) => u && (u.rank === 'VIP_DIAMOND' || isStaff(u));
 const now = () => Date.now();
 const hhmm = () => new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+function getLinkedAccounts(user) {
+  if (!user) return [];
+  const linkedIds = new Set();
+  for (const dev of (user.devices || [])) {
+    const arr = store.state.deviceAccounts[dev] || [];
+    for (const uid of arr) {
+      if (uid !== user.id) linkedIds.add(uid);
+    }
+  }
+  if (user.lastIp && store.state.ipAccounts && store.state.ipAccounts[user.lastIp]) {
+    for (const uid of store.state.ipAccounts[user.lastIp]) {
+      if (uid !== user.id) linkedIds.add(uid);
+    }
+  }
+  const out = [];
+  for (const uid of linkedIds) {
+    const o = store.state.users[uid];
+    if (o) {
+      out.push({
+        id: o.id,
+        name: o.displayName || o.name,
+        loginName: o.name,
+        rank: o.rank,
+        isMuted: !!o.isMuted,
+        isGhost: !!o.isGhost,
+        createdAt: o.createdAt || 0
+      });
+    }
+  }
+  return out;
+}
 
 function getClientIp(reqOrSocket) {
   const headers = reqOrSocket.headers || reqOrSocket.handshake?.headers || {};
@@ -90,6 +123,8 @@ function publicUser(u) {
     bio: u.bio || '', age: u.age || null, gender: u.gender || '',
     isMuted: !!u.isMuted, isGhost: !!u.isGhost, status: u.status || 'online',
     isGuest: !!u.isGuest, guestExpiresAt: u.guestExpiresAt || null,
+    lockPrivate: !!u.lockPrivate, muteNotifications: !!u.muteNotifications,
+    oldNames: u.oldNames || [],
     online: online.has(u.id)
   };
 }
@@ -99,7 +134,7 @@ function roomUsers(roomId) {
   for (const [uid, p] of online) {
     if (p.roomId === roomId) {
       const u = store.state.users[uid];
-      if (u) out.push(publicUser(u));
+      if (u && !u.isGhost) out.push(publicUser(u));
     }
   }
   const roomBots = quizBot.getBotsForRoom ? quizBot.getBotsForRoom(roomId) : [];
@@ -204,7 +239,7 @@ app.post('/api/upload', (req, res) => {
 });
 
 const adminRouter = createAdminRouter({
-  store, auth, online, io, quizBot, publicUser, roomsSummary, isStaff, rank, RANKS, now, makeMessage
+  store, auth, online, io, quizBot, publicUser, roomsSummary, isStaff, rank, RANKS, now, makeMessage, getLinkedAccounts
 });
 app.use('/api/admin', adminRouter);
 app.use('/admin', express.static(path.join(__dirname, 'public/admin')));
@@ -420,7 +455,7 @@ io.on('connection', (socket) => {
   const currentUser = () => (socket.data.userId ? store.state.users[socket.data.userId] : null);
   const fail = (cb, message) => { if (typeof cb === 'function') cb({ ok: false, error: message }); };
 
-  socket.on('register', ({ name, password, avatarUrl, guest } = {}, cb) => {
+  socket.on('register', ({ name, password, avatarUrl, guest, isGuest: explicitGuest, age, gender, country, bio, isGhost, lockPrivate, muteNotifications } = {}, cb) => {
     const clientIp = socket.clientIp || getClientIp(socket);
     const nowTime = now();
 
@@ -432,8 +467,9 @@ io.on('connection', (socket) => {
     attempts.push(nowTime);
     registerAttempts.set(clientIp, attempts);
 
+    const isGuest = !!guest || !!explicitGuest;
     // 2. Guest Flooding Shield
-    if (guest) {
+    if (isGuest) {
       const currentGuests = Object.values(store.state.users).filter(u => u.isGuest).length;
       if (currentGuests >= MAX_GLOBAL_GUESTS) {
         return fail(cb, 'وصل نظام حسابات الزوار للحد الأقصى حالياً، يرجى التسجيل بحساب رسمي.');
@@ -448,32 +484,36 @@ io.on('connection', (socket) => {
 
     // 3. Hardware device limit (Max 5 accounts per deviceHash)
     if (socket.deviceHash) {
+      if (store.state.bannedDevices[socket.deviceHash]) return fail(cb, 'هذا الجهاز محظور نهائياً');
       const existing = store.state.deviceAccounts[socket.deviceHash] || [];
-      if (existing.length >= 5) {
+      if (existing.length >= 5 && !isGuest) {
         return fail(cb, 'تم تجاوز الحد الأقصى للحسابات المسموح بإنشائها من هذا الجهاز (5 حسابات كحد أقصى)');
       }
     }
 
     if (!auth.validName(name)) return fail(cb, 'الاسم يجب أن يكون بين 2 و50 حرفاً');
-    if (typeof password !== 'string' || password.length < 3) return fail(cb, 'الرمز السري قصير جداً');
-    const key = name.trim().toLowerCase();
+    if (!isGuest && (typeof password !== 'string' || password.length < 3)) return fail(cb, 'الرمز السري قصير جداً');
+    const key = (name || '').trim().toLowerCase();
     if (store.state.names[key]) return fail(cb, 'الاسم مستخدم مسبقاً');
 
-    const { salt, hash } = auth.hashPassword(password);
-    const id = store.nextId('u');
+    const { salt, hash } = isGuest ? { salt: '', hash: '' } : auth.hashPassword(password);
     const isFirst = Object.keys(store.state.users).length === 0;
-    const isGuest = !!guest && !isFirst;
-    // New members get a random pleasant color automatically (not a fixed one).
     const AUTO_COLORS = ['#f3d5d5', '#e9f4d4', '#d5eef5', '#e9dcee', '#f3e6d4', '#fad5f6', '#ece9ff', '#FD62BE'];
+    const id = store.nextId(isGuest ? 'guest_' : 'u_');
     const user = {
       id, name: name.trim(), salt, hash,
       avatarUrl: avatarUrl || '',
       rank: isFirst ? 'OWNER' : 'REGULAR',
-      customHexColor: isFirst ? null : AUTO_COLORS[Math.floor(Math.random() * AUTO_COLORS.length)], country: 'IQ',
+      customHexColor: isFirst ? null : AUTO_COLORS[Math.floor(Math.random() * AUTO_COLORS.length)],
+      country: country || 'IQ',
+      age: Number(age) || null,
+      gender: gender || '',
+      bio: bio || '',
       isMuted: process.env.AUTO_MUTE === 'true' ? !isFirst : false,
-      isGhost: false, status: 'online',
+      isGhost: !!isGhost, status: 'online',
+      lockPrivate: !!lockPrivate, muteNotifications: !!muteNotifications,
       isGuest, guestExpiresAt: isGuest ? now() + GUEST_TTL_MS : null,
-      oldNames: [], createdAt: now(),
+      oldNames: [], createdAt: now(), lastIp: clientIp,
       devices: socket.deviceHash ? [socket.deviceHash] : []
     };
     store.state.users[id] = user;
@@ -482,6 +522,10 @@ io.on('connection', (socket) => {
       const list = store.state.deviceAccounts[socket.deviceHash] || (store.state.deviceAccounts[socket.deviceHash] = []);
       if (!list.includes(id)) list.push(id);
     }
+    if (!store.state.ipAccounts) store.state.ipAccounts = {};
+    const ipList = store.state.ipAccounts[clientIp] || (store.state.ipAccounts[clientIp] = []);
+    if (!ipList.includes(id)) ipList.push(id);
+
     const token = auth.newToken();
     store.state.tokens[token] = id;
     store.flush();
@@ -489,7 +533,7 @@ io.on('connection', (socket) => {
     if (typeof cb === 'function') cb({ ok: true, token, user: publicUser(user) });
   });
 
-  socket.on('login', ({ name, password, token } = {}, cb) => {
+  socket.on('login', ({ name, password, token, isGhost, lockPrivate, muteNotifications } = {}, cb) => {
     let user = null;
     if (token && store.state.tokens[token]) user = store.state.users[store.state.tokens[token]];
     if (!user) {
@@ -501,11 +545,21 @@ io.on('connection', (socket) => {
       }
       user = candidate;
     }
+    const clientIp = getClientIp(socket);
+    user.lastIp = clientIp;
+    if (isGhost !== undefined) user.isGhost = !!isGhost;
+    if (lockPrivate !== undefined) user.lockPrivate = !!lockPrivate;
+    if (muteNotifications !== undefined) user.muteNotifications = !!muteNotifications;
+
     if (socket.deviceHash && !(user.devices || []).includes(socket.deviceHash)) {
       (user.devices || (user.devices = [])).push(socket.deviceHash);
       const list = store.state.deviceAccounts[socket.deviceHash] || (store.state.deviceAccounts[socket.deviceHash] = []);
       if (!list.includes(user.id)) list.push(user.id);
     }
+    if (!store.state.ipAccounts) store.state.ipAccounts = {};
+    const ipList = store.state.ipAccounts[clientIp] || (store.state.ipAccounts[clientIp] = []);
+    if (!ipList.includes(user.id)) ipList.push(user.id);
+
     const newTok = token && store.state.tokens[token] ? token : auth.newToken();
     store.state.tokens[newTok] = user.id;
     store.flush();
@@ -560,8 +614,10 @@ io.on('connection', (socket) => {
         users: roomUsers(room.id)
       });
     }
-    io.to(room.id).emit('system_message', { roomId: room.id, text: `${user.name} دخل الغرفة`, at: now() });
-    broadcastUserList(room.id);
+    if (!user.isGhost) {
+      io.to(room.id).emit('system_message', { roomId: room.id, text: `${user.displayName || user.name} دخل الغرفة`, at: now() });
+      broadcastUserList(room.id);
+    }
     io.emit('rooms', { rooms: roomsSummary() });
   });
 
@@ -626,7 +682,12 @@ io.on('connection', (socket) => {
         return socket.emit('error_alert', { message: 'تم كتمك تلقائياً بسبب الإغراق' });
       }
       if (now() - last.at < 2000) return socket.emit('error_alert', { message: 'يرجى الانتظار ثانيتين بين كل رسالة' });
-      if (last.text === cleanText && !safeMediaUrl) return socket.emit('error_alert', { message: 'لا تكرر نفس الرسالة' });
+      if (last.text === cleanText && !safeMediaUrl) {
+        user.isMuted = true; store.flush();
+        socket.emit('force_disconnect', { reason: 'تم طردك تلقائياً من النظام بسبب تكرار الكلام (Anti-Spam)' });
+        socket.disconnect(true);
+        return;
+      }
     }
     lastSent.set(user.id, { at: now(), text: cleanText });
 
@@ -668,8 +729,10 @@ io.on('connection', (socket) => {
     if (!user) return fail(cb, 'سجل الدخول');
     const target = store.state.users[toUserId];
     if (!target) return fail(cb, 'العضو غير موجود');
+    if (!isVip(user)) return fail(cb, 'المراسلة الخاصة مغلقة للأعضاء الجدد — تفتح تلقائياً عند الحصول على رتبة مميز (VIP) والإدارة فما فوق');
+    if (target.lockPrivate && !isStaff(user)) return fail(cb, 'هذا العضو قام بتعطيل استلام الرسائل الخاصة في إعداداته');
     const room = store.state.rooms[(online.get(user.id) || {}).roomId];
-    if (room && room.lockPrivate && !isStaff(user)) return fail(cb, 'المحادثات الخاصة مقفلة');
+    if (room && room.lockPrivate && !isStaff(user)) return fail(cb, 'المحادثات الخاصة مقفلة في هذه الغرفة');
     if (user.isMuted) return fail(cb, 'أنت مكتوم');
 
     let cleanText = '';
@@ -792,19 +855,40 @@ io.on('connection', (socket) => {
     if (typeof cb === 'function') cb({ ok: true, scores: arr.slice(0, 50) });
   });
 
-  socket.on('update_profile', ({ customHexColor, avatarUrl, status, bio, age, gender, country, displayName } = {}, cb) => {
+  socket.on('update_profile', ({ customHexColor, avatarUrl, status, bio, age, gender, country, displayName, lockPrivate, muteNotifications, isGhost } = {}, cb) => {
     const user = currentUser();
     if (!user) return fail(cb, 'سجل الدخول');
-    if (typeof displayName === 'string' && displayName.trim().length >= 2) user.displayName = displayName.trim().slice(0, 50);
-    if (typeof avatarUrl === 'string') user.avatarUrl = avatarUrl.slice(0, 300);
+    if (typeof displayName === 'string' && displayName.trim().length >= 2) {
+      const trimmed = displayName.trim().slice(0, 50);
+      const current = user.displayName || user.name;
+      if (trimmed !== current) {
+        if (!user.oldNames) user.oldNames = [];
+        if (!user.oldNames.includes(current)) user.oldNames.unshift(current);
+        if (user.oldNames.length > 20) user.oldNames.pop();
+        user.displayName = trimmed;
+      }
+    }
+    if (typeof avatarUrl === 'string') {
+      if (!isVip(user) && avatarUrl !== user.avatarUrl) {
+        return fail(cb, 'تغيير الصورة الرمزية متاح لرتبة VIP فما فوق');
+      }
+      user.avatarUrl = avatarUrl.slice(0, 300);
+    }
     if (typeof status === 'string' && ['online', 'away', 'busy'].includes(status)) user.status = status;
     if (typeof bio === 'string') user.bio = bio.slice(0, 160);
     if (age !== undefined) user.age = Number(age) || null;
     if (typeof gender === 'string') user.gender = gender.slice(0, 20);
     if (typeof country === 'string') user.country = country.slice(0, 50);
     if (typeof customHexColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(customHexColor)) {
-      user.customHexColor = customHexColor;  // everyone may pick a color
+      if (!isVip(user)) {
+        return fail(cb, 'تخصيص لون الاسم والفقاعة متاح لرتبة VIP فما فوق');
+      }
+      user.customHexColor = customHexColor;
     }
+    if (lockPrivate !== undefined) user.lockPrivate = !!lockPrivate;
+    if (muteNotifications !== undefined) user.muteNotifications = !!muteNotifications;
+    if (isGhost !== undefined && isStaff(user)) user.isGhost = !!isGhost;
+
     store.flush();
     const p = online.get(user.id);
     if (p) io.to(p.roomId).emit('user_updated', { user: publicUser(user) });
@@ -821,41 +905,76 @@ io.on('connection', (socket) => {
 
     const p = target && online.get(target.id);
     switch (action) {
-      case 'mute': target.isMuted = true; break;
-      case 'unmute': target.isMuted = false; break;
-      case 'ghost': target.isGhost = true; break;
-      case 'unghost': target.isGhost = false; break;
+      case 'mute':
+        target.isMuted = true;
+        store.logAdmin(me, 'mute', target, payload.reason || 'كتم العضو');
+        break;
+      case 'unmute':
+        target.isMuted = false;
+        store.logAdmin(me, 'unmute', target, 'إلغاء الكتم');
+        break;
+      case 'ghost':
+        target.isGhost = true;
+        store.logAdmin(me, 'ghost', target, 'تفعيل وضع الشبح');
+        break;
+      case 'unghost':
+        target.isGhost = false;
+        store.logAdmin(me, 'unghost', target, 'إلغاء وضع الشبح');
+        break;
       case 'kick':
         if (p) { io.to(p.socketId).emit('force_disconnect', { reason: 'تم طردك من الغرفة' }); io.sockets.sockets.get(p.socketId)?.disconnect(true); }
+        store.logAdmin(me, 'kick', target, payload.reason || 'طرد من الغرفة');
         break;
       case 'ban_device':
         for (const d of (target.devices || [])) store.state.bannedDevices[d] = { by: me.name, at: now() };
         if (p) { io.to(p.socketId).emit('force_disconnect', { reason: 'تم حظر جهازك نهائياً' }); io.sockets.sockets.get(p.socketId)?.disconnect(true); }
+        store.logAdmin(me, 'ban_device', target, 'حظر الجهاز نهائياً');
         break;
       case 'unban_device':
         if (payload.deviceHash && store.state.bannedDevices[payload.deviceHash]) {
           delete store.state.bannedDevices[payload.deviceHash];
+          store.logAdmin(me, 'unban_device', null, `إلغاء حظر جهاز: ${payload.deviceHash}`);
+        }
+        break;
+      case 'delete_user':
+        if (me.rank !== 'OWNER' && me.rank !== 'ADMIN') return fail(cb, 'حذف الحساب متاح للمدير والمالك فقط');
+        if (p) {
+          io.to(p.socketId).emit('force_disconnect', { reason: 'تم حذف حسابك نهائياً من قبل الإدارة' });
+          io.sockets.sockets.get(p.socketId)?.disconnect(true);
+        }
+        store.logAdmin(me, 'delete_user', target, 'حذف الحساب نهائياً');
+        delete store.state.users[target.id];
+        delete store.state.names[(target.name || '').toLowerCase()];
+        for (const [tok, uid] of Object.entries(store.state.tokens)) {
+          if (uid === target.id) delete store.state.tokens[tok];
         }
         break;
       case 'trigger_quiz': {
         const room = store.state.rooms[(online.get(me.id) || {}).roomId] || store.state.rooms.iraq;
         quizBot.askQuestion(room.id);
+        store.logAdmin(me, 'trigger_quiz', null, `تشغيل سؤال مسابقات في غرفة ${room.id}`);
         break;
       }
       case 'promote':
         if (me.rank !== 'OWNER' && (me.rank !== 'MODERATOR' || payload.rank !== 'VIP_DIAMOND')) return fail(cb, 'الترقية للمشرفين أو المالك فقط');
-        if (RANKS.includes(payload.rank)) target.rank = payload.rank;
+        if (RANKS.includes(payload.rank)) {
+          const prevRank = target.rank;
+          target.rank = payload.rank;
+          store.logAdmin(me, 'promote', target, `ترقية من ${prevRank} إلى ${payload.rank}`);
+        }
         break;
       case 'lock_room': {
         const room = store.state.rooms[(online.get(me.id) || {}).roomId];
         if (!room) return fail(cb, 'لست داخل غرفة');
         if (payload.what === 'public') room.lockPublic = !!payload.value;
         if (payload.what === 'private') room.lockPrivate = !!payload.value;
+        store.logAdmin(me, 'lock_room', null, `تعديل قفل الغرفة ${room.id}: ${payload.what}=${payload.value}`);
         io.to(room.id).emit('room_updated', { id: room.id, lockPublic: !!room.lockPublic, lockPrivate: !!room.lockPrivate });
         break;
       }
       case 'broadcast': {
         const text = String(payload.text || '').slice(0, 300);
+        store.logAdmin(me, 'broadcast', null, `إرسال تنبيه عام: ${text}`);
         io.emit('broadcast', { text, by: me.name, at: now() });
         if (push.enabled()) {
           for (const u of Object.values(store.state.users)) {
@@ -867,7 +986,7 @@ io.on('connection', (socket) => {
       default: return fail(cb, 'إجراء غير معروف');
     }
     store.flush();
-    if (target) {
+    if (target && action !== 'delete_user') {
       const tp = online.get(target.id);
       if (tp) io.to(tp.roomId).emit('user_updated', { user: publicUser(target) });
       // Refresh the online list everywhere the mod and target are, so the mute
@@ -875,13 +994,34 @@ io.on('connection', (socket) => {
       const mp = online.get(me.id);
       if (mp && mp.roomId) broadcastUserList(mp.roomId);
       if (tp && tp.roomId && (!mp || tp.roomId !== mp.roomId)) broadcastUserList(tp.roomId);
+    } else if (action === 'delete_user') {
+      for (const r of Object.keys(store.state.rooms)) broadcastUserList(r);
     }
-    const done = { mute: 'تم كتم العضو', unmute: 'تم فك الكتم', kick: 'تم طرد العضو', ban_device: 'تم حظر الجهاز نهائياً', ghost: 'تم تفعيل وضع الشبح', unghost: 'تم إلغاء وضع الشبح', promote: 'تم تغيير الرتبة' };
+    const done = { mute: 'تم كتم العضو', unmute: 'تم فك الكتم', kick: 'تم طرد العضو', ban_device: 'تم حظر الجهاز نهائياً', ghost: 'تم تفعيل وضع الشبح', unghost: 'تم إلغاء وضع الشبح', promote: 'تم تغيير الرتبة', delete_user: 'تم حذف الحساب نهائياً' };
     if (done[action]) socket.emit('error_alert', { message: '✅ ' + done[action] });
     if (typeof cb === 'function') cb({ ok: true });
   }
 
   socket.on('mod_action', ({ action, ...payload } = {}, cb) => moderate(action, payload, cb));
+
+  socket.on('user_inspect', ({ targetUserId } = {}, cb) => {
+    const me = currentUser();
+    if (!isStaff(me)) return fail(cb, 'صلاحية مشرف مطلوبة');
+    const target = store.state.users[targetUserId];
+    if (!target) return fail(cb, 'العضو غير موجود');
+    const linked = getLinkedAccounts(target);
+    if (typeof cb === 'function') {
+      cb({
+        ok: true,
+        user: publicUser(target),
+        oldNames: target.oldNames || [],
+        linkedAccounts: linked,
+        devices: target.devices || [],
+        lastIp: target.lastIp || '',
+        createdAt: target.createdAt || null
+      });
+    }
+  });
 
   socket.on('list_banned', (_p, cb) => {
     const me = currentUser();

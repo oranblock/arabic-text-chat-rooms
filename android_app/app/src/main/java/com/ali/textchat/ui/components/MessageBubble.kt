@@ -41,7 +41,9 @@ private data class Skin(val fill: Brush, val text: Color, val border: Color)
 private fun skinFor(rank: UserRank): Skin = when (rank) {
     // Owner / manager: GOLD background (الخلفية ذهبية) + dark text — reserved for staff.
     UserRank.OWNER -> Skin(Brush.horizontalGradient(listOf(Color(0xFFFFEDA5), Color(0xFFCC9835))), Color(0xFF3A2A00), Color(0xFF856211))
-    // Admin / moderator: black bubble + silver (الاسود الفضي) — reserved for staff.
+    // Admin: Royal Navy background with Gold Star accent
+    UserRank.ADMIN -> Skin(Brush.horizontalGradient(listOf(Color(0xFF1A237E), Color(0xFF0D47A1))), Color(0xFFF1C40F), Color(0xFFD4AF37))
+    // Moderator: black bubble + silver (الاسود الفضي) — reserved for staff.
     UserRank.MODERATOR -> Skin(Brush.horizontalGradient(listOf(Color(0xFF1E1E1E), Color(0xFF000000))), Color(0xFFE6E6E6), Color(0xFFCFCFCF))
     UserRank.VIP_DIAMOND -> Skin(Brush.horizontalGradient(listOf(Color(0xFFFFE1E8), Color(0xFFFD62BE))), Color(0xFF3A0A28), Color(0xFFFD62BE))
     // Regular / guest: bright silver-grey background, dark text (not dark grey).
@@ -68,7 +70,7 @@ fun MessageBubble(
     val baseSkin = if (message.customHexColor == null && message.senderRank == UserRank.REGULAR && isFemale)
         rankSkin.copy(fill = Brush.horizontalGradient(listOf(Color(0xFFFAD5F6), Color(0xFFFAD5F6))), text = Color(0xFF7A2960), border = Color(0xFFE873C8))
     else rankSkin
-    val isStaffRank = message.senderRank == UserRank.OWNER || message.senderRank == UserRank.MODERATOR
+    val isStaffRank = message.senderRank == UserRank.OWNER || message.senderRank == UserRank.ADMIN || message.senderRank == UserRank.MODERATOR
     // Everyone (staff included) may pick any color; without a pick, the rank
     // default applies (gold owner / black mod / grey member / pink female).
     val skin = message.customHexColor?.let { hex ->
@@ -78,7 +80,7 @@ fun MessageBubble(
             baseSkin.copy(fill = Brush.horizontalGradient(listOf(c, c)), text = if (lum > 0.6f) Color(0xFF222222) else Color.White)
         }.getOrNull()
     } ?: baseSkin
-    val avatarShape = RoundedCornerShape(14.dp)
+    val avatarShape = RoundedCornerShape(6.dp)
 
     Row(
         modifier = modifier

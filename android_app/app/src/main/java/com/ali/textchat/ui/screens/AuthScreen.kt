@@ -30,8 +30,8 @@ fun AuthScreen(
     error: String?,
     serverUrl: String,
     onUpdateServerUrl: (String) -> Unit,
-    onLogin: (name: String, password: String) -> Unit,
-    onRegister: (name: String, password: String, displayName: String, age: String, gender: String, country: String, status: String) -> Unit,
+    onLogin: (name: String, password: String, isGhost: Boolean, lockPrivate: Boolean, muteNotifications: Boolean) -> Unit,
+    onRegister: (name: String, password: String, displayName: String, age: String, gender: String, country: String, status: String, isGhost: Boolean, lockPrivate: Boolean, muteNotifications: Boolean) -> Unit,
     onGuest: () -> Unit
 ) {
     var isRegister by remember { mutableStateOf(false) }
@@ -39,9 +39,12 @@ fun AuthScreen(
     var password by remember { mutableStateOf("") }
     var displayName by remember { mutableStateOf("") }
     var age by remember { mutableStateOf("") }
-    var gender by remember { mutableStateOf("male") }
+    var gender by remember { mutableStateOf("ذكر") }
     var country by remember { mutableStateOf("العراق") }
     var status by remember { mutableStateOf("") }
+    var isGhost by remember { mutableStateOf(false) }
+    var lockPrivate by remember { mutableStateOf(false) }
+    var muteNotifications by remember { mutableStateOf(false) }
     var showServerDialog by remember { mutableStateOf(false) }
     var tempUrl by remember(serverUrl) { mutableStateOf(serverUrl) }
 
@@ -68,20 +71,68 @@ fun AuthScreen(
 
             if (isRegister) {
                 Spacer(Modifier.height(10.dp))
-                AuthField(displayName, "الاسم الرمزي (يظهر بالشات)") { displayName = it }
+                AuthField(displayName, "الاسم الرمزي والزخرفة (يظهر بالشات)") { displayName = it }
                 Spacer(Modifier.height(10.dp))
                 AuthField(age, "العمر") { if (it.length <= 2 && it.all { c -> c.isDigit() }) age = it }
                 Spacer(Modifier.height(10.dp))
-                AuthField(country, "البلد") { country = it }
+                AuthField(country, "المحافظة / البلد") { country = it }
                 Spacer(Modifier.height(10.dp))
-                AuthField(status, "الحالة (اختياري)") { status = it }
+                AuthField(status, "الحالة الشخصية (اختياري)") { status = it }
                 Spacer(Modifier.height(10.dp))
-                Text("نوع الجنس", color = Color(0xFF888888), fontSize = 12.sp)
+                Text("الجنس", color = Color(0xFF888888), fontSize = 12.sp)
                 Spacer(Modifier.height(6.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GenderChip("ذكر", gender == "male", Modifier.weight(1f)) { gender = "male" }
-                    GenderChip("أنثى", gender == "female", Modifier.weight(1f)) { gender = "female" }
-                    GenderChip("آخر", gender == "other", Modifier.weight(1f)) { gender = "other" }
+                    GenderChip("ذكر", gender == "ذكر", Modifier.weight(1f)) { gender = "ذكر" }
+                    GenderChip("أنثى", gender == "أنثى", Modifier.weight(1f)) { gender = "أنثى" }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+            // Pre-login Privacy Settings Toggles
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFFF9F9F9))
+                    .padding(8.dp)
+            ) {
+                Text("إعدادات الخصوصية المسبقة:", color = Color(0xFF555555), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { isGhost = !isGhost },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.Checkbox(
+                        checked = isGhost,
+                        onCheckedChange = { isGhost = it },
+                        colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = BcAccent)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text("👻 الدخول بوضع الشبح (مخفي تماماً)", fontSize = 11.5.sp, color = Color(0xFF333333))
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { lockPrivate = !lockPrivate },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.Checkbox(
+                        checked = lockPrivate,
+                        onCheckedChange = { lockPrivate = it },
+                        colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = BcAccent)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text("🔒 قفل المحادثات الخاصة", fontSize = 11.5.sp, color = Color(0xFF333333))
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { muteNotifications = !muteNotifications },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.Checkbox(
+                        checked = muteNotifications,
+                        onCheckedChange = { muteNotifications = it },
+                        colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = BcAccent)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text("🔕 كتم الإشعارات والتنبيهات", fontSize = 11.5.sp, color = Color(0xFF333333))
                 }
             }
 
@@ -90,10 +141,14 @@ fun AuthScreen(
                 Text(error, color = Color(0xFFD32F2F), fontSize = 12.sp, textAlign = TextAlign.Center)
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(14.dp))
             PrimaryButton(if (isRegister) "إنشاء حساب" else "تسجيل الدخول", busy) {
                 if (name.isNotBlank() && password.isNotBlank()) {
-                    if (isRegister) onRegister(name.trim(), password, displayName.trim(), age, gender, country.trim(), status.trim()) else onLogin(name.trim(), password)
+                    if (isRegister) {
+                        onRegister(name.trim(), password, displayName.trim(), age, gender, country.trim(), status.trim(), isGhost, lockPrivate, muteNotifications)
+                    } else {
+                        onLogin(name.trim(), password, isGhost, lockPrivate, muteNotifications)
+                    }
                 }
             }
             Spacer(Modifier.height(10.dp))

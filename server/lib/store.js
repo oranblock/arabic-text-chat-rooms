@@ -29,6 +29,8 @@ function emptyState() {
     privates: {},         // "a|b" -> [message]
     bannedDevices: {},    // deviceHash -> { by, at }
     deviceAccounts: {},   // deviceHash -> [userId]
+    ipAccounts: {},       // ip -> [userId]
+    adminLogs: [],        // [{ id, adminId, adminName, action, targetId, targetName, detail, at }]
     seq: 1
   };
 }
@@ -88,7 +90,26 @@ function pushPrivate(a, b, msg) {
   save();
 }
 
+function logAdmin(admin, action, target, detail = '') {
+  state.adminLogs = state.adminLogs || [];
+  const entry = {
+    id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    adminId: admin ? admin.id : 'system',
+    adminName: admin ? (admin.displayName || admin.name) : 'النظام',
+    adminRank: admin ? admin.rank : 'SYSTEM',
+    action,
+    targetId: target ? target.id : null,
+    targetName: target ? (target.displayName || target.name) : null,
+    detail,
+    at: Date.now()
+  };
+  state.adminLogs.unshift(entry);
+  if (state.adminLogs.length > 500) state.adminLogs.pop();
+  save();
+  return entry;
+}
+
 module.exports = {
   get state() { return state; },
-  save, flush, nextId, pushMessage, pushPrivate, pairKey, FILE
+  save, flush, nextId, pushMessage, pushPrivate, pairKey, logAdmin, FILE
 };

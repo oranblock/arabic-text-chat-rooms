@@ -297,7 +297,18 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
                         modifier = Modifier.fillMaxWidth().background(Color(0xFFF2DEDE)).padding(8.dp))
                 }
                 LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 58.dp, bottom = 6.dp, start = 4.dp, end = 8.dp)) {
-                    items(messages) { msg -> MessageBubble(message = msg, onUserMention = { name -> input = "@$name: $input" }) }
+                    items(messages) { msg ->
+                        MessageBubble(
+                            message = msg,
+                            onUserMention = { name ->
+                                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                                val clip = android.content.ClipData.newPlainText("user_mention", "@$name ")
+                                clipboard?.setPrimaryClip(clip)
+                                android.widget.Toast.makeText(context, "تم نسخ التاك @$name للحافظة", android.widget.Toast.LENGTH_SHORT).show()
+                                input = "@$name: $input"
+                            }
+                        )
+                    }
                 }
             }
             // Collapsible floating magenta head buttons (left edge) so they don't cover the
@@ -493,6 +504,7 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
         ModerationDialog(
             target = t,
             isOwner = me?.rank == UserRank.OWNER,
+            socket = socket,
             onDismiss = { modTarget = null },
             onAction = { action -> socket.moderate(action, t.id); modTarget = null },
             onPromote = { rankStr -> socket.promote(t.id, rankStr); modTarget = null }
@@ -942,6 +954,7 @@ private fun ProfileDialog(
 ) {
     // Exact iqchat.top "chatbox" skin colors (css/custom.css)
     val colors = listOf("#f3d5d5", "#e9f4d4", "#d5eef5", "#e9dcee", "#f3e6d4", "#fad5f6", "#ece9ff", "#FD62BE")
+    val luxuryColors = listOf("#1A1A1A", "#D4AF37", "#556B2F", "#1A237E", "#800020")
     val avatarSeeds = listOf("Iraq", "Baghdad", "Basra", "Najaf", "Karbala", "Mosul", "Kufa", "Anbar")
     var picked by remember { mutableStateOf(me.customHexColor) }
     var avatar by remember { mutableStateOf(me.avatarUrl.ifBlank { null }) }
@@ -949,7 +962,7 @@ private fun ProfileDialog(
     var age by remember { mutableStateOf(me.age?.toString() ?: "") }
     var gender by remember { mutableStateOf(if (me.gender.isNotBlank()) me.gender else "ذكر") }
     var country by remember { mutableStateOf(if (me.country.isNotBlank()) me.country else "بغداد") }
-    val vip = true  // everyone may pick their bubble color (members not forced to one)
+    val isVip = me.rank != UserRank.REGULAR && me.rank != UserRank.BOT && !me.isGuest
     val loader = com.ali.textchat.ui.util.svgCapableLoader(androidx.compose.ui.platform.LocalContext.current)
     val scroll = rememberScrollState()
 
@@ -969,15 +982,21 @@ private fun ProfileDialog(
             Spacer(Modifier.height(12.dp))
 
             // Avatar picker
-            Text("اختر صورتك الرمزية", color = Color(0xFF444444), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("اختر صورتك الرمزية", color = Color(0xFF444444), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                if (!isVip) {
+                    Spacer(Modifier.width(6.dp))
+                    Text("🔒 خاص بـ VIP فما فوق", color = Color(0xFFC2185B), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
             Spacer(Modifier.height(6.dp))
             androidx.compose.foundation.lazy.LazyRow {
                 items(avatarSeeds.size) { i ->
                     val url = "https://api.dicebear.com/7.x/bottts/png?seed=${avatarSeeds[i]}"
                     Box(
-                        Modifier.padding(4.dp).size(48.dp).clip(RoundedCornerShape(12.dp))
-                            .border(if (avatar == url) 3.dp else 1.dp, if (avatar == url) BcAccent else BcInputBorder, RoundedCornerShape(12.dp))
-                            .clickable { avatar = url }
+                        Modifier.padding(4.dp).size(48.dp).clip(RoundedCornerShape(6.dp))
+                            .border(if (avatar == url) 3.dp else 1.dp, if (avatar == url) BcAccent else BcInputBorder, RoundedCornerShape(6.dp))
+                            .clickable(enabled = isVip) { avatar = url }
                     ) {
                         coil.compose.AsyncImage(model = url, imageLoader = loader, contentDescription = null, modifier = Modifier.fillMaxSize())
                     }
@@ -1040,32 +1059,60 @@ private fun ProfileDialog(
             )
             Spacer(Modifier.height(12.dp))
 
-            // VIP Color Picker (unlocked for VIP or demo testing)
-            Text("اختر لون اسمك", color = Color(0xFF444444), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(8.dp))
-            // Color wheel (pick any color) + live preview of the current pick
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                com.ali.textchat.ui.components.ColorWheel(diameter = 150.dp) { hex -> picked = hex }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(
-                        Modifier.size(48.dp).clip(CircleShape)
-                            .background(picked?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() } ?: Color(0xFFECECEC))
-                            .border(1.dp, Color(0xFFBDBDBD), CircleShape)
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(picked ?: "—", color = Color(0xFF666666), fontSize = 11.sp)
+            // VIP Color Picker (unlocked for VIP_DIAMOND+)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("تخصيص لون الاسم والفقاعة", color = Color(0xFF444444), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                if (!isVip) {
+                    Spacer(Modifier.width(6.dp))
+                    Text("🔒 خاص بـ VIP فما فوق", color = Color(0xFFC2185B), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(Modifier.height(8.dp))
-            Row {
-                colors.forEach { c ->
-                    Box(
-                        Modifier.padding(4.dp).size(28.dp).clip(CircleShape)
-                            .background(Color(android.graphics.Color.parseColor(c)))
-                            .border(if (picked == c) 3.dp else 0.dp, Color.Black, CircleShape)
-                            .clickable(enabled = vip) { picked = c }
-                    )
+            if (isVip) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    com.ali.textchat.ui.components.ColorWheel(diameter = 130.dp) { hex -> picked = hex }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(
+                            Modifier.size(48.dp).clip(CircleShape)
+                                .background(picked?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() } ?: Color(0xFFECECEC))
+                                .border(1.dp, Color(0xFFBDBDBD), CircleShape)
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(picked ?: "—", color = Color(0xFF666666), fontSize = 11.sp)
+                    }
                 }
+                Spacer(Modifier.height(8.dp))
+                // Luxury Administrative Colors
+                Text("👑 باقة الألوان الملكية الفاخرة:", fontSize = 11.5.sp, color = Color(0xFF856211), fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    val luxLabels = listOf("ملكي", "ذهبي", "زيتي", "كحلي", "عنابي")
+                    luxuryColors.forEachIndexed { idx, c ->
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                            Box(
+                                Modifier.size(32.dp).clip(RoundedCornerShape(6.dp))
+                                    .background(Color(android.graphics.Color.parseColor(c)))
+                                    .border(if (picked == c) 3.dp else 1.dp, if (picked == c) BcAccent else Color(0xFF999999), RoundedCornerShape(6.dp))
+                                    .clickable { picked = c }
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(luxLabels[idx], fontSize = 10.sp, color = Color(0xFF555555))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row {
+                    colors.forEach { c ->
+                        Box(
+                            Modifier.padding(4.dp).size(28.dp).clip(CircleShape)
+                                .background(Color(android.graphics.Color.parseColor(c)))
+                                .border(if (picked == c) 3.dp else 0.dp, Color.Black, CircleShape)
+                                .clickable { picked = c }
+                        )
+                    }
+                }
+            } else {
+                Text("الألوان متاحة فقط لأصحاب رتبة VIP فما فوق لحماية هوية الشات ومنع التشتيت.", color = Color(0xFF888888), fontSize = 11.5.sp)
             }
             Spacer(Modifier.height(16.dp))
 
@@ -1073,7 +1120,7 @@ private fun ProfileDialog(
             Box(
                 Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(6.dp)).background(BcAccent)
                     .clickable {
-                        onSave(if (vip) picked else null, avatar, "online", bio, age.toIntOrNull(), gender, country)
+                        onSave(if (isVip) picked else null, if (isVip) avatar else null, "online", bio, age.toIntOrNull(), gender, country)
                     },
                 contentAlignment = Alignment.Center
             ) {
@@ -1171,26 +1218,45 @@ private fun RequestsDialog(requests: List<PmThread>, onRespond: (String, Boolean
 private fun ModerationDialog(
     target: ChatUser,
     isOwner: Boolean,
+    socket: ChatSocket,
     onDismiss: () -> Unit,
     onAction: (String) -> Unit,
     onPromote: (String) -> Unit
 ) {
+    var oldNames by remember { mutableStateOf<List<String>>(target.oldNames) }
+    var linkedAccounts by remember { mutableStateOf<List<ChatUser>>(emptyList()) }
+    var userIp by remember { mutableStateOf<String?>(null) }
+    var loadingInspect by remember { mutableStateOf(true) }
+
+    LaunchedEffect(target.id) {
+        socket.userInspect(target.id) { ok, old, linked, ip ->
+            if (ok) {
+                oldNames = old
+                linkedAccounts = linked
+                userIp = ip
+            }
+            loadingInspect = false
+        }
+    }
+
     val actions = listOf(
         "unmute" to "🔊 فك الكتم / تفعيل العضو",
         "mute" to "🔇 كتم العضو",
         "ghost" to "👻 وضع الشبح (كتم صامت)",
         "unghost" to "👁️ إلغاء وضع الشبح",
         "kick" to "🚪 طرد من الغرفة",
-        "ban_device" to "⛔ حظر الجهاز نهائياً"
+        "ban_device" to "⛔ حظر الجهاز نهائياً",
+        "delete_user" to "🗑️ حذف الحساب نهائياً"
     )
+
     Dialog(onDismiss) {
         Column(
             Modifier
                 .clip(RoundedCornerShape(14.dp))
                 .background(Color.White)
                 .padding(16.dp)
-                .fillMaxWidth(0.9f)
-                .heightIn(max = 520.dp)
+                .fillMaxWidth(0.92f)
+                .heightIn(max = 600.dp)
         ) {
             Text("إدارة: ${target.name} (${target.rank.titleAr})", color = BcAccent, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             val info = buildList {
@@ -1204,25 +1270,49 @@ private fun ModerationDialog(
             if (target.bio.isNotBlank()) {
                 Text("“${target.bio}”", color = Color(0xFF888888), fontSize = 11.5.sp)
             }
+            if (!userIp.isNullOrBlank()) {
+                Text("IP: $userIp", color = Color(0xFF1976D2), fontSize = 10.5.sp)
+            }
             Spacer(Modifier.height(8.dp))
+
+            // Old Names History (Crucial client spec)
+            if (oldNames.isNotEmpty()) {
+                Text("📜 الأسماء السابقة: " + oldNames.joinToString(" ← "), color = Color(0xFF5D4037), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(4.dp))
+            }
+
+            // Linked Multi-Accounts (Crucial client spec)
+            if (linkedAccounts.isNotEmpty()) {
+                Text("👥 حسابات أخرى مرتبطة بالجهاز/IP (${linkedAccounts.size}):", color = Color(0xFFC2185B), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Column(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                    linkedAccounts.forEach { la ->
+                        Text("• ${la.name} (${la.rank.badge} ${la.rank.titleAr})", fontSize = 10.5.sp, color = Color(0xFF444444))
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+            }
 
             Text("الرتبة والترقيات:", fontSize = 12.sp, color = Color(0xFF666666), fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(6.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (isOwner) {
+                    Box(
+                        Modifier.weight(1f).clip(RoundedCornerShape(6.dp)).background(Color(0xFFFFF3E0)).clickable { onPromote("ADMIN") }.padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) { Text("🌟 مدير", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFE65100)) }
                     Box(
                         Modifier.weight(1f).clip(RoundedCornerShape(6.dp)).background(Color(0xFFEDE7F6)).clickable { onPromote("MODERATOR") }.padding(vertical = 8.dp),
                         contentAlignment = Alignment.Center
-                    ) { Text("🛡️ مشرف", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF512DA8)) }
+                    ) { Text("🛡️ مشرف", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF512DA8)) }
                 }
                 Box(
                     Modifier.weight(1f).clip(RoundedCornerShape(6.dp)).background(Color(0xFFE1F5FE)).clickable { onPromote("VIP_DIAMOND") }.padding(vertical = 8.dp),
                     contentAlignment = Alignment.Center
-                ) { Text("💎 مميز", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0288D1)) }
+                ) { Text("💎 مميز", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0288D1)) }
                 Box(
                     Modifier.weight(1f).clip(RoundedCornerShape(6.dp)).background(Color(0xFFF5F5F5)).clickable { onPromote("REGULAR") }.padding(vertical = 8.dp),
                     contentAlignment = Alignment.Center
-                ) { Text("👤 عادي", fontSize = 12.sp, color = Color(0xFF616161)) }
+                ) { Text("👤 عادي", fontSize = 11.sp, color = Color(0xFF616161)) }
             }
 
             Spacer(Modifier.height(10.dp))
@@ -1230,20 +1320,20 @@ private fun ModerationDialog(
 
             LazyColumn(Modifier.fillMaxWidth()) {
                 items(actions) { (a, label) ->
-                    val danger = a == "ban_device" || a == "kick"
+                    val danger = a == "ban_device" || a == "kick" || a == "delete_user"
                     Row(
                         Modifier.fillMaxWidth().padding(vertical = 4.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(if (danger) Color(0xFFFDECEC) else Color(0xFFF3F3F3))
+                            .background(if (a == "delete_user") Color(0xFFFFEBEE) else if (danger) Color(0xFFFDECEC) else Color(0xFFF3F3F3))
                             .clickable { onAction(a) }
-                            .padding(horizontal = 14.dp, vertical = 14.dp),
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             label,
                             color = if (danger) Color(0xFFD32F2F) else if (a == "unmute") Color(0xFF2E7D32) else Color(0xFF333333),
-                            fontSize = 15.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
