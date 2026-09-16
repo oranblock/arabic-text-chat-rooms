@@ -145,7 +145,7 @@ fun YouTubeInChatPlayer(
                             webViewClient = object : android.webkit.WebViewClient() {
                                 override fun shouldOverrideUrlLoading(view: WebView?, request: android.webkit.WebResourceRequest?): Boolean {
                                     val u = request?.url?.toString() ?: return false
-                                    if (u.contains("youtube.com/embed")) return false
+                                    if (u.contains("youtube.com") || u.contains("googlevideo.com") || u.contains("ali-chat.app")) return false
                                     return try {
                                         ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u)))
                                         true
@@ -155,11 +155,37 @@ fun YouTubeInChatPlayer(
                         }
                     },
                     update = { web ->
-                        val targetUrl = "https://www.youtube.com/embed/$videoId?autoplay=1&playsinline=1&enablejsapi=1&rel=0"
                         val currentId = web.tag as? String
                         if (currentId != videoId) {
                             web.tag = videoId
-                            web.loadUrl(targetUrl)
+                            val html = """
+                                <!DOCTYPE html>
+                                <html>
+                                <head>
+                                    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+                                    <meta name="referrer" content="always">
+                                    <style>
+                                        * { margin:0; padding:0; box-sizing:border-box; }
+                                        html, body { width:100%; height:100%; background:#000; overflow:hidden; }
+                                        iframe { width:100%; height:100%; border:none; }
+                                    </style>
+                                </head>
+                                <body>
+                                    <iframe
+                                        id="player"
+                                        type="text/html"
+                                        width="100%"
+                                        height="100%"
+                                        src="https://www.youtube.com/embed/$videoId?autoplay=1&playsinline=1&enablejsapi=1&rel=0&origin=https://ali-chat.app"
+                                        frameborder="0"
+                                        referrerpolicy="origin"
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                        allowfullscreen>
+                                    </iframe>
+                                </body>
+                                </html>
+                            """.trimIndent()
+                            web.loadDataWithBaseURL("https://ali-chat.app/", html, "text/html", "UTF-8", null)
                         }
                     }
                 )
