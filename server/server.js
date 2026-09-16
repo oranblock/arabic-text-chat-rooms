@@ -237,7 +237,8 @@ io.on('connection', (socket) => {
           youtubeId: room.youtubeId || '',
           youtubeTitle: room.youtubeTitle || '',
           youtubeStartedAt: room.youtubeStartedAt || 0,
-          youtubeOffset: room.youtubeStartedAt ? Math.max(0, Math.floor((now() - room.youtubeStartedAt) / 1000)) : 0
+          youtubeOffset: room.youtubeStartedAt ? Math.max(0, Math.floor((now() - room.youtubeStartedAt) / 1000)) : 0,
+          youtubeQueue: room.youtubeQueue || []
         },
         me: publicUser(user),
         messages: history,
