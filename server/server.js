@@ -106,6 +106,37 @@ app.use('/api/admin', adminRouter);
 app.use('/admin', express.static(path.join(__dirname, 'public/admin')));
 app.get('/admin', (_req, res) => res.sendFile(path.join(__dirname, 'public/admin/index.html')));
 
+app.get('/player/:videoId', (req, res) => {
+  const videoId = (req.params.videoId || '').replace(/[^A-Za-z0-9_-]/g, '');
+  if (!videoId) return res.status(400).send('معرف فيديو غير صالح');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="referrer" content="origin">
+  <title>YouTube Player</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body { width:100%; height:100%; background:#000; overflow:hidden; }
+    #player-container { position:relative; width:100%; height:100%; }
+    iframe { width:100%; height:100%; position:absolute; top:0; left:0; border:0; }
+  </style>
+</head>
+<body>
+  <div id="player-container">
+    <iframe
+      id="yt"
+      src="https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&controls=1&enablejsapi=1&rel=0"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      allowfullscreen>
+    </iframe>
+  </div>
+</body>
+</html>`);
+});
+
 io.use((socket, next) => {
   const deviceHash = socket.handshake.query.deviceHash || '';
   socket.deviceHash = deviceHash;

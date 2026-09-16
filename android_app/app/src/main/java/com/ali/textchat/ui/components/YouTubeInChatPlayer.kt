@@ -49,10 +49,8 @@ fun YouTubeInChatPlayer(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp)
-            .shadow(4.dp, RoundedCornerShape(8.dp))
-            .clip(RoundedCornerShape(8.dp))
             .border(1.dp, Color(0xFF334155), RoundedCornerShape(8.dp))
-            .background(Color(0xFF0F172A))
+            .background(Color(0xFF0F172A), RoundedCornerShape(8.dp))
     ) {
         Row(
             modifier = Modifier
@@ -126,26 +124,36 @@ fun YouTubeInChatPlayer(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (isMinimized) 0.dp else 200.dp)
+                .height(if (isMinimized) 0.dp else 220.dp)
         ) {
             if (videoId.isNotBlank()) {
                 AndroidView(
                     modifier = Modifier.fillMaxSize(),
                     factory = { ctx ->
                         WebView(ctx).apply {
+                            layoutParams = android.view.ViewGroup.LayoutParams(
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                            isClickable = true
+                            isFocusable = true
+                            isFocusableInTouchMode = true
                             settings.apply {
                                 javaScriptEnabled = true
                                 domStorageEnabled = true
-                                databaseEnabled = true
                                 mediaPlaybackRequiresUserGesture = false
                                 loadsImagesAutomatically = true
                                 userAgentString = "Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
                             }
-                            webChromeClient = WebChromeClient()
+                            webChromeClient = object : WebChromeClient() {
+                                override fun getDefaultVideoPoster(): android.graphics.Bitmap? {
+                                    return android.graphics.Bitmap.createBitmap(1, 1, android.graphics.Bitmap.Config.ARGB_8888)
+                                }
+                            }
                             webViewClient = object : android.webkit.WebViewClient() {
                                 override fun shouldOverrideUrlLoading(view: WebView?, request: android.webkit.WebResourceRequest?): Boolean {
                                     val u = request?.url?.toString() ?: return false
-                                    if (u.contains("youtube.com") || u.contains("googlevideo.com") || u.contains("ali-chat.app")) return false
+                                    if (u.contains("youtube.com") || u.contains("googlevideo.com") || u.contains("trycloudflare.com") || u.contains("localhost")) return false
                                     return try {
                                         ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u)))
                                         true
@@ -158,34 +166,8 @@ fun YouTubeInChatPlayer(
                         val currentId = web.tag as? String
                         if (currentId != videoId) {
                             web.tag = videoId
-                            val html = """
-                                <!DOCTYPE html>
-                                <html>
-                                <head>
-                                    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-                                    <meta name="referrer" content="always">
-                                    <style>
-                                        * { margin:0; padding:0; box-sizing:border-box; }
-                                        html, body { width:100%; height:100%; background:#000; overflow:hidden; }
-                                        iframe { width:100%; height:100%; border:none; }
-                                    </style>
-                                </head>
-                                <body>
-                                    <iframe
-                                        id="player"
-                                        type="text/html"
-                                        width="100%"
-                                        height="100%"
-                                        src="https://www.youtube.com/embed/$videoId?autoplay=1&playsinline=1&enablejsapi=1&rel=0&origin=https://ali-chat.app"
-                                        frameborder="0"
-                                        referrerpolicy="origin"
-                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                                        allowfullscreen>
-                                    </iframe>
-                                </body>
-                                </html>
-                            """.trimIndent()
-                            web.loadDataWithBaseURL("https://ali-chat.app/", html, "text/html", "UTF-8", null)
+                            val remoteUrl = "${com.ali.textchat.data.AppConfig.defaultUrl()}/player/$videoId"
+                            web.loadUrl(remoteUrl)
                         }
                     }
                 )
