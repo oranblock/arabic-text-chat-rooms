@@ -870,7 +870,14 @@ io.on('connection', (socket) => {
     if (target) {
       const tp = online.get(target.id);
       if (tp) io.to(tp.roomId).emit('user_updated', { user: publicUser(target) });
+      // Refresh the online list everywhere the mod and target are, so the mute
+      // icon / rank / removal shows live (this is what made mute look "not working").
+      const mp = online.get(me.id);
+      if (mp && mp.roomId) broadcastUserList(mp.roomId);
+      if (tp && tp.roomId && (!mp || tp.roomId !== mp.roomId)) broadcastUserList(tp.roomId);
     }
+    const done = { mute: 'تم كتم العضو', unmute: 'تم فك الكتم', kick: 'تم طرد العضو', ban_device: 'تم حظر الجهاز نهائياً', ghost: 'تم تفعيل وضع الشبح', unghost: 'تم إلغاء وضع الشبح', promote: 'تم تغيير الرتبة' };
+    if (done[action]) socket.emit('error_alert', { message: '✅ ' + done[action] });
     if (typeof cb === 'function') cb({ ok: true });
   }
 
