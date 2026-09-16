@@ -282,12 +282,91 @@
       <button class="btn" onclick="sendBroadcast()">إرسال الإعلان لجميع الغرف 📢</button>
     </div>
 
-    <!-- TAB 4: Quiz Bot -->
+    <!-- TAB 4: Multi-Bot Management, Room Assignment & JSON Importer -->
     <div id="tab-quiz" class="section-card" style="display: none;">
       <div class="section-header">
-        <div class="section-title">🎮 بوت مسابقات الكلمات المبعثرة</div>
-        <button class="btn btn-success" onclick="triggerQuiz()">🎯 طرح سؤال مسابقة الآن بالشات</button>
+        <div class="section-title">
+          <span>🤖 إدارة وتخصيص البوتات وتوزيعها على الغرف واستيراد JSON</span>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="btn btn-outline" onclick="fetchBotsData()">🔄 تحديث حالة البوتات</button>
+          <button class="btn btn-success" onclick="triggerQuiz()">🎯 طرح سؤال فوري بروم الألعاب</button>
+        </div>
       </div>
+
+      <!-- Live Bot Stats Summary -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px;">
+        <div style="background: #0f172a; padding: 16px; border-radius: 12px; border: 1px solid var(--card-border);">
+          <div style="font-size: 12px; color: var(--text-muted);">إجمالي البوتات المسجلة</div>
+          <div style="font-size: 22px; font-weight: 800; color: #38bdf8;" id="bots-total-count">4</div>
+        </div>
+        <div style="background: #0f172a; padding: 16px; border-radius: 12px; border: 1px solid var(--card-border);">
+          <div style="font-size: 12px; color: var(--text-muted);">بنك الأسئلة المتوفر</div>
+          <div style="font-size: 22px; font-weight: 800; color: var(--green);" id="bots-questions-count">25</div>
+        </div>
+        <div style="background: #0f172a; padding: 16px; border-radius: 12px; border: 1px solid var(--card-border);">
+          <div style="font-size: 12px; color: var(--text-muted);">الغرف المفعلة تلقائياً</div>
+          <div style="font-size: 22px; font-weight: 800; color: var(--gold);" id="bots-auto-count">0</div>
+        </div>
+      </div>
+
+      <!-- SECTION 1: Room-by-Room Bot Assignment Matrix -->
+      <div style="background: #111827; border: 1px solid var(--card-border); border-radius: 12px; padding: 18px; margin-bottom: 24px;">
+        <h3 style="font-size: 16px; font-weight: 800; color: #fff; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+          <span>🎯 تخصيص وتوزيع البوتات على الغرف (Room Bot Assignment)</span>
+        </h3>
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">
+          يمكنك تعيين بوت محدد لكل غرفة بشكل مستقل (مثلاً: ست وداد لديوانية العراق، أبو حيدر لروم بغداد، وحزورة لروم الألعاب)، مع التحكم بالوضع التلقائي.
+        </p>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>الغرفة</th>
+                <th>البوت المعين حالياً</th>
+                <th>تغيير بوت الغرفة</th>
+                <th>المسابقات التلقائية</th>
+                <th>الإجراءات الفورية</th>
+              </tr>
+            </thead>
+            <tbody id="bot-rooms-tbody">
+              <!-- Populated via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SECTION 2: JSON Bot & Questions Importer -->
+      <div style="background: #0b1120; border: 1px solid #1e293b; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
+          <div>
+            <h3 style="font-size: 16px; font-weight: 800; color: var(--gold); display: flex; align-items: center; gap: 6px;">
+              <span>📥 أداة استيراد الأسئلة والبوتات JSON (Bot & Question Importer)</span>
+            </h3>
+            <span style="font-size: 12px; color: var(--text-muted);">استيراد بنك أسئلة جديد أو إضافة شخصيات بوتات جديدة بصيغة JSON وحفظها فورياً في السيرفر</span>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn btn-outline" style="font-size: 12px;" onclick="loadSampleJson()">📋 ملء نموذج تجريبي جاهز</button>
+            <label class="btn btn-outline" style="font-size: 12px; cursor: pointer;">
+              📁 اختيار ملف JSON
+              <input type="file" id="json-file-input" accept=".json" style="display: none;" onchange="handleFileSelect(event)">
+            </label>
+          </div>
+        </div>
+
+        <textarea id="bot-import-textarea" rows="6" style="width: 100%; font-family: monospace; font-size: 12px; margin-bottom: 12px;" placeholder='الصق كود JSON هنا...'></textarea>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
+            <input type="checkbox" id="import-replace-checkbox">
+            <span>استبدال جميع الأسئلة الحالية بالكامل (Replace All)</span>
+          </label>
+          <button class="btn btn-success" style="padding: 10px 20px;" onclick="submitJsonImport()">🚀 بدء استيراد وحفظ البيانات</button>
+        </div>
+        <div id="import-result-msg" style="margin-top: 10px; font-size: 13px; display: none;"></div>
+      </div>
+
+      <!-- SECTION 3: Bots Roster & Leaderboard -->
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; flex-wrap: wrap;">
         <div>
           <h4 style="margin-bottom: 12px; color: var(--gold);">🏆 قائمة المتصدرين في النقاط</h4>
@@ -308,12 +387,9 @@
           </div>
         </div>
         <div>
-          <h4 style="margin-bottom: 12px; color: #38bdf8;">💡 مميزات بوت المسابقات</h4>
-          <div style="background: #0f172a; padding: 18px; border-radius: 12px; border: 1px solid var(--card-border); font-size: 13px; line-height: 1.8; color: var(--text-muted);">
-            • يطرح أسئلة ثقافية عراقية وألغاز كلمات دورياً.<br>
-            • يراقب رسائل الشات لحظياً ويكتشف الإجابة الصحيحة تلقائياً.<br>
-            • يمنح الفائز 10 نقاط ويكتب تهنئة خاصة باسمه في الشات العام.<br>
-            • يمكن للمشرفين طرح أسئلة فورية بنقرة زر أو عبر أمر <code>/quiz</code>.
+          <h4 style="margin-bottom: 12px; color: #38bdf8;">🤖 البوتات المسجلة في النظام</h4>
+          <div id="bots-roster-list" style="display: flex; flex-direction: column; gap: 10px;">
+            <!-- Populated via JS -->
           </div>
         </div>
       </div>
@@ -445,6 +521,7 @@
           renderRooms();
           renderLeaderboard();
           renderBanned();
+          fetchBotsData();
         }
       } catch (e) {
         console.error('Fetch error:', e);
@@ -746,20 +823,291 @@
       }
     }
 
-    async function triggerQuiz() {
+    async function fetchBotsData() {
+      if (!state.token) return;
+      try {
+        const res = await fetch('/api/admin/bots', { headers: headers() });
+        const data = await res.json();
+        if (data.ok) {
+          state.botsData = data;
+          renderBotManagement();
+        }
+      } catch (e) {
+        console.error('Fetch bots error:', e);
+      }
+    }
+
+    function renderBotManagement() {
+      if (!state.botsData) return;
+      const bd = state.botsData;
+
+      const totalEl = document.getElementById('bots-total-count');
+      const qEl = document.getElementById('bots-questions-count');
+      const autoEl = document.getElementById('bots-auto-count');
+      if (totalEl) totalEl.innerText = (bd.bots || []).length;
+      if (qEl) qEl.innerText = bd.totalQuestions || 0;
+      if (autoEl) autoEl.innerText = (bd.autoRooms || []).length;
+
+      // Render Room Bot Matrix
+      const tbody = document.getElementById('bot-rooms-tbody');
+      if (tbody && state.data && state.data.rooms) {
+        tbody.innerHTML = state.data.rooms.map(r => {
+          const currentBotId = (bd.roomBots && bd.roomBots[r.id]) || (r.id === 'games' ? 'bot_scramble' : 'none');
+          const currentBot = (bd.bots || []).find(b => b.id === currentBotId);
+          const autoEntry = (bd.autoRooms || []).find(a => a.roomId === r.id);
+          const isAuto = !!autoEntry;
+          const autoSec = autoEntry ? autoEntry.intervalSec : 60;
+          const activeQ = bd.activeQuestions && bd.activeQuestions[r.id];
+
+          return `
+            <tr>
+              <td>
+                <b>🇮🇶 ${r.title}</b>
+                <div style="font-size: 11px; color: var(--text-muted);">معرف: <code>${r.id}</code> (${r.online} متصل)</div>
+                ${activeQ ? `<div style="margin-top: 4px;"><span class="badge badge-vip">سؤال نشط: ${activeQ.q.slice(0, 30)}...</span></div>` : ''}
+              </td>
+              <td>
+                ${currentBot ? `
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <img src="${currentBot.avatarUrl}" style="width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--card-border);">
+                    <div>
+                      <b style="color: ${currentBot.customHexColor || '#38bdf8'}; font-size: 12px;">${currentBot.name}</b>
+                      <div style="font-size: 10px; color: var(--text-muted);">${currentBot.role}</div>
+                    </div>
+                  </div>
+                ` : '<span style="color: var(--text-muted); font-size: 12px;">🔇 بدون بوت (صامت)</span>'}
+              </td>
+              <td>
+                <select id="bot-pick-${r.id}" style="padding: 6px 10px; font-size: 12px; width: 100%; max-width: 220px;">
+                  <option value="none" ${currentBotId === 'none' ? 'selected' : ''}>🔇 بدون بوت (صامت)</option>
+                  ${(bd.bots || []).map(b => `
+                    <option value="${b.id}" ${currentBotId === b.id ? 'selected' : ''}>${b.name} (${b.role})</option>
+                  `).join('')}
+                </select>
+              </td>
+              <td>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <label class="switch">
+                    <input type="checkbox" id="bot-auto-${r.id}" ${isAuto ? 'checked' : ''}>
+                    <span class="slider"></span>
+                  </label>
+                  <input type="text" id="bot-sec-${r.id}" value="${autoSec}" style="width: 48px; text-align: center; padding: 4px; font-size: 11px;" title="ثواني بين كل جولة">
+                  <span style="font-size: 11px; color: var(--text-muted);">ثانية</span>
+                </div>
+              </td>
+              <td>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                  <button class="btn btn-success" style="padding: 4px 8px; font-size: 11px;" onclick="saveRoomBotAssignment('${r.id}')">
+                    💾 حفظ وتعيين
+                  </button>
+                  <button class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;" onclick="triggerRoomQuiz('${r.id}')">
+                    🎯 طرح سؤال
+                  </button>
+                  <button class="btn btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="dismissRoomBot('${r.id}')">
+                    🛑 صرف
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // Render Bots Roster Gallery
+      const rosterList = document.getElementById('bots-roster-list');
+      if (rosterList && bd.bots) {
+        rosterList.innerHTML = bd.bots.map(b => `
+          <div style="background: #0f172a; border: 1px solid var(--card-border); border-radius: 10px; padding: 12px; display: flex; align-items: center; gap: 12px;">
+            <img src="${b.avatarUrl}" style="width: 40px; height: 40px; border-radius: 50%; border: 2px solid ${b.customHexColor || 'var(--card-border)'};">
+            <div style="flex: 1;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <b style="color: ${b.customHexColor || '#fff'}; font-size: 13px;">${b.name}</b>
+                <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">${b.role}</span>
+              </div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 3px;">${b.greeting || ''}</div>
+              <div style="font-size: 10px; color: #64748b; margin-top: 2px;">معرف: <code>${b.id}</code></div>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    async function saveRoomBotAssignment(roomId) {
+      const botId = document.getElementById(`bot-pick-${roomId}`).value;
+      const auto = document.getElementById(`bot-auto-${roomId}`).checked;
+      const autoSec = parseInt(document.getElementById(`bot-sec-${roomId}`).value, 10) || 60;
+
+      try {
+        const res = await fetch('/api/admin/bots/assign', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ roomId, botId, auto, autoSec })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          alert('✅ تم تعيين البوت للغرفة بنجاح وتحديث حالته');
+          fetchBotsData();
+          fetchData();
+        } else {
+          alert(data.error || 'حدث خطأ في تعيين البوت');
+        }
+      } catch (e) {
+        alert('فشل الاتصال بالسيرفر');
+      }
+    }
+
+    async function triggerRoomQuiz(roomId) {
+      const botId = document.getElementById(`bot-pick-${roomId}`)?.value;
       try {
         const res = await fetch('/api/admin/quiz-trigger', {
           method: 'POST',
           headers: headers(),
-          body: JSON.stringify({ roomId: 'games' })
+          body: JSON.stringify({ roomId, botId: (botId !== 'none' ? botId : null) })
         });
         const data = await res.json();
         if (data.ok) {
-          alert('🎮 تم طرح سؤال مسابقة الآن في الروم بواسطة مسابقات الكلمات المبعثرة: ' + data.question.q);
-          fetchData();
+          if (data.question && data.question.alreadyActive) {
+            alert(`⚠️ يوجد سؤال قيد الحل حالياً في هذه الغرفة:\n${data.question.q}`);
+          } else {
+            const qText = (data.question && data.question.item) ? data.question.item.q : 'سؤال جديد';
+            alert(`🎯 تم طرح سؤال مسابقة الآن في الغرفة بنجاح:\n\n[ ${qText} ]`);
+          }
+          fetchBotsData();
+        } else {
+          alert(data.error || 'فشل طرح السؤال');
         }
       } catch (e) {
-        alert('فشل الاتصال');
+        alert('فشل الاتصال بالسيرفر');
+      }
+    }
+
+    async function dismissRoomBot(roomId) {
+      try {
+        const res = await fetch('/api/admin/bots/dismiss', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ roomId })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          alert('🛑 تم صرف البوت وإيقاف مسابقاته في الغرفة');
+          fetchBotsData();
+          fetchData();
+        } else {
+          alert(data.error || 'حدث خطأ');
+        }
+      } catch (e) {
+        alert('فشل الاتصال بالسيرفر');
+      }
+    }
+
+    async function triggerQuiz() {
+      await triggerRoomQuiz('games');
+    }
+
+    function loadSampleJson() {
+      const sample = {
+        bots: [
+          {
+            id: "bot_widad",
+            name: "ست وداد 🤖",
+            avatarUrl: "https://api.dicebear.com/7.x/bottts/png?seed=Widad",
+            customHexColor: "#00E5FF",
+            role: "trivia",
+            greeting: "هلا والله بالحبايب! أني ست وداد ومعاكم للمسابقات الثقافية والمعلومات العامة 🇮🇶✨"
+          },
+          {
+            id: "bot_scramble",
+            name: "حزورة الكلمات 🎮",
+            avatarUrl: "https://api.dicebear.com/7.x/bottts/png?seed=ScrambleWords",
+            customHexColor: "#FF9800",
+            role: "scramble",
+            greeting: "يا هلا بأصحاب الذكاء! جاهزين لحل الكلمات المبعثرة والألغاز؟ 🧩🔥"
+          },
+          {
+            id: "bot_abu_haider",
+            name: "أبو حيدر المضياف ☕",
+            avatarUrl: "https://api.dicebear.com/7.x/bottts/png?seed=AbuHaider",
+            customHexColor: "#10B981",
+            role: "proverbs",
+            greeting: "منورين الديوان حبايب، استكان شاي مهيل وأحلى أمثال وسوالف بغدادية قديمة ☕🌹"
+          },
+          {
+            id: "bot_deen",
+            name: "قبسات إيمانية 🕌",
+            avatarUrl: "https://api.dicebear.com/7.x/bottts/png?seed=Deen",
+            customHexColor: "#8B5CF6",
+            role: "religious",
+            greeting: "السلام عليكم ورحمة الله وبركاته 🌙 أهلاً بكم في المسابقات المعرفية والدينية"
+          }
+        ],
+        questions: [
+          { category: "culture", q: "ما هي عاصمة العراق في عهد الدولة العباسية؟", a: "بغداد", points: 10 },
+          { category: "geography", q: "نهر يمر في بغداد يقسمها إلى كرخ ورصافة؟", a: "دجلة", points: 10 },
+          { category: "history", q: "في أي مدينة تقع المئذنة الملوية الشهيرة؟", a: "سامراء", points: 10 },
+          { category: "proverbs", q: "أكمل المثل البغدادي: اللي ما يعرف يدبج يكول ...؟", a: "الكاع عوجة", points: 10 },
+          { category: "religious", q: "في أي مدينة عراقية يقع مرقد الإمام علي بن أبي طالب (ع)؟", a: "النجف", points: 10 }
+        ]
+      };
+      document.getElementById('bot-import-textarea').value = JSON.stringify(sample, null, 2);
+    }
+
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('bot-import-textarea').value = e.target.result;
+      };
+      reader.readAsText(file);
+    }
+
+    async function submitJsonImport() {
+      const raw = document.getElementById('bot-import-textarea').value.trim();
+      const replaceAll = document.getElementById('import-replace-checkbox').checked;
+      const msgEl = document.getElementById('import-result-msg');
+      msgEl.style.display = 'none';
+
+      if (!raw) {
+        alert('يرجى لصق كود JSON أو اختيار ملف أولاً');
+        return;
+      }
+
+      let parsed;
+      try {
+        parsed = JSON.parse(raw);
+      } catch (e) {
+        alert('⚠️ صيغة JSON غير صحيحة:\n' + e.message);
+        return;
+      }
+
+      if (replaceAll) {
+        parsed.replace = true;
+      }
+
+      try {
+        const res = await fetch('/api/admin/bots/import', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify(parsed)
+        });
+        const data = await res.json();
+        if (data.ok) {
+          msgEl.innerHTML = `
+            <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid var(--green); color: var(--green); padding: 10px 14px; border-radius: 8px;">
+              🎉 <b>تم الاستيراد والحفظ بنجاح!</b><br>
+              • تم استيراد ${data.importedQuestions} سؤال و ${data.importedBots} بوت.<br>
+              • إجمالي الأسئلة في بنك النظام الآن: <b>${data.totalQuestions}</b> سؤال | إجمالي البوتات: <b>${data.totalBots}</b>.
+            </div>
+          `;
+          msgEl.style.display = 'block';
+          fetchBotsData();
+          fetchData();
+        } else {
+          alert(data.error || 'حدث خطأ أثناء الاستيراد');
+        }
+      } catch (e) {
+        alert('فشل الاتصال بالسيرفر أثناء الاستيراد');
       }
     }
 
@@ -843,6 +1191,7 @@
       ['users', 'rooms', 'broadcast', 'quiz', 'banned', 'terminal'].forEach(id => {
         document.getElementById(`tab-${id}`).style.display = (id === tabId ? 'block' : 'none');
       });
+      if (tabId === 'quiz') fetchBotsData();
     }
 
     // Auto-refresh every 5 seconds

@@ -36,8 +36,10 @@ import androidx.compose.foundation.layout.FlowRow
 private data class Skin(val fill: Brush, val text: Color, val border: Color)
 
 private fun skinFor(rank: UserRank): Skin = when (rank) {
-    UserRank.OWNER -> Skin(Brush.horizontalGradient(listOf(BcGoldC, BcGoldB, BcGoldA)), Color(0xFF222222), BcGoldA)
-    UserRank.MODERATOR -> Skin(Brush.horizontalGradient(listOf(BcVioletB, BcVioletA)), Color(0xFFFFE7E7), BcVioletA)
+    // Owner / manager: black bubble + gold (الذهبي) — reserved for staff.
+    UserRank.OWNER -> Skin(Brush.horizontalGradient(listOf(Color(0xFF000000), Color(0xFF1E1E1E))), Color(0xFFFFD54A), Color(0xFFFFD54A))
+    // Admin / moderator: black bubble + silver (الاسود الفضي) — reserved for staff.
+    UserRank.MODERATOR -> Skin(Brush.horizontalGradient(listOf(Color(0xFF1E1E1E), Color(0xFF000000))), Color(0xFFE6E6E6), Color(0xFFCFCFCF))
     UserRank.VIP_DIAMOND -> Skin(Brush.horizontalGradient(listOf(Color(0xFFFFE1E8), Color(0xFFFD62BE))), Color(0xFF3A0A28), Color(0xFFFD62BE))
     UserRank.REGULAR -> Skin(Brush.horizontalGradient(listOf(Color(0xFF4A4A4A), Color(0xFF4A4A4A))), Color.White, Color(0xFF4A4A4A))
     UserRank.BOT -> Skin(Brush.horizontalGradient(listOf(Color(0xFF233548), Color(0xFF233548))), Color.White, Color(0xFF00E5FF))
@@ -62,8 +64,11 @@ fun MessageBubble(
     val baseSkin = if (message.customHexColor == null && message.senderRank == UserRank.REGULAR && isFemale)
         rankSkin.copy(fill = Brush.horizontalGradient(listOf(Color(0xFFFAD5F6), Color(0xFFFAD5F6))), text = Color(0xFF7A2960), border = Color(0xFFE873C8))
     else rankSkin
+    // Black/gold (owner) and black/silver (mod) are reserved for staff — a
+    // user-picked color never overrides a staff skin.
+    val isStaffRank = message.senderRank == UserRank.OWNER || message.senderRank == UserRank.MODERATOR
     // User-picked bubble color (iqchat "chatbox" skin) overrides the default skin fill.
-    val skin = message.customHexColor?.let { hex ->
+    val skin = if (isStaffRank) baseSkin else message.customHexColor?.let { hex ->
         runCatching {
             val c = Color(android.graphics.Color.parseColor(hex))
             val lum = 0.299f * c.red + 0.587f * c.green + 0.114f * c.blue
