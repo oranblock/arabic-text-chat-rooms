@@ -15,21 +15,24 @@ import coil.decode.SvgDecoder
 object Emoticons {
     private var codes: List<String>? = null
 
+    private var fileByCode: Map<String, String> = emptyMap()
+
     fun codes(context: Context): List<String> {
         codes?.let { return it }
-        val list = try {
+        val map = try {
             (context.assets.list("emoticons") ?: emptyArray())
-                .filter { it.endsWith(".gif", true) }
-                .map { it.removeSuffix(".gif") }
-                .sorted()
+                .filter { it.endsWith(".gif", true) || it.endsWith(".png", true) || it.endsWith(".webp", true) }
+                .associateBy { it.substringBeforeLast('.') }
         } catch (e: Exception) {
-            emptyList()
+            emptyMap()
         }
+        fileByCode = map
+        val list = map.keys.sorted()
         codes = list
         return list
     }
 
-    fun assetUri(code: String) = "file:///android_asset/emoticons/$code.gif"
+    fun assetUri(code: String) = "file:///android_asset/emoticons/${fileByCode[code] ?: "$code.gif"}"
 
     /** Splits text into plain runs, Lottie vector animations, and ":code:" emoticon tokens. */
     fun tokenize(text: String, known: Set<String>): List<Token> {
