@@ -39,7 +39,8 @@ data class ChatMessage(
     val customHexColor: String? = null,
     val text: String,
     val timestamp: String,
-    val isGhost: Boolean = false
+    val isGhost: Boolean = false,
+    val senderGender: String = ""
 )
 
 /** A private-message inbox entry (someone this user has a thread with). */

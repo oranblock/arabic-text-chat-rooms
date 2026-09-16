@@ -54,8 +54,14 @@ fun MessageBubble(
 ) {
     val context = LocalContext.current
     val loader = remember { svgCapableLoader(context) }
-    val baseSkin = skinFor(message.senderRank)
-    // User-picked bubble color (iqchat "chatbox" skin) overrides the rank skin fill.
+    val rankSkin = skinFor(message.senderRank)
+    // Female members default to a pink chatbox skin (iqchat convention) when they
+    // are regular members and have not picked their own color.
+    val isFemale = message.senderGender == "female" || message.senderGender == "أنثى" || message.senderGender == "انثى"
+    val baseSkin = if (message.customHexColor == null && message.senderRank == UserRank.REGULAR && isFemale)
+        rankSkin.copy(fill = Brush.horizontalGradient(listOf(Color(0xFFFAD5F6), Color(0xFFFAD5F6))), text = Color(0xFF7A2960), border = Color(0xFFE873C8))
+    else rankSkin
+    // User-picked bubble color (iqchat "chatbox" skin) overrides the default skin fill.
     val skin = message.customHexColor?.let { hex ->
         runCatching {
             val c = Color(android.graphics.Color.parseColor(hex))
@@ -91,15 +97,25 @@ fun MessageBubble(
                     modifier = Modifier.fillMaxSize()
                 )
             }
+            // VIP / staff "dress": a small decoration badge on the avatar corner
+            val deco = when (message.senderRank) {
+                UserRank.OWNER -> "👑"
+                UserRank.MODERATOR -> "🛡️"
+                UserRank.VIP_DIAMOND -> "🎩"
+                else -> null
+            }
+            if (deco != null) Text(deco, fontSize = 15.sp, modifier = Modifier.align(Alignment.TopEnd))
         }
 
         Spacer(Modifier.width(8.dp))
 
-        // Full-width message block like iqchat.top (fills the row beside the avatar)
+        // Bubble hugs its content so the frame fits the username length (short = small,
+        // long / decorated names = wider), like iqchat.top.
         Column(
             modifier = Modifier
-                .weight(1f)
-                .heightIn(min = 60.dp)
+                .weight(1f, fill = false)
+                .widthIn(min = 110.dp)
+                .heightIn(min = 56.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .clickable { onUserMention(message.senderName) }
                 .background(skin.fill)

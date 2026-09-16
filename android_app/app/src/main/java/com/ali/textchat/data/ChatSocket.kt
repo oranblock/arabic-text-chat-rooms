@@ -342,7 +342,8 @@ class ChatSocket(
         customHexColor = o.optString("customHexColor").takeIf { it.isNotBlank() && it != "null" },
         text = o.optString("text"),
         timestamp = o.optString("timestamp"),
-        isGhost = o.optBoolean("isGhost")
+        isGhost = o.optBoolean("isGhost"),
+        senderGender = o.optString("senderGender")
     )
 
     private fun parseMessages(a: JSONArray) = (0 until a.length()).map { parseMessage(a.getJSONObject(it)) }

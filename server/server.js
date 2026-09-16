@@ -89,6 +89,7 @@ function makeMessage(u, roomId, text, extra = {}) {
     senderName: u.name,
     senderAvatar: u.avatarUrl || '',
     senderRank: u.rank,
+    senderGender: u.gender || '',
     customHexColor: u.customHexColor || null,
     text,
     timestamp: hhmm(),
