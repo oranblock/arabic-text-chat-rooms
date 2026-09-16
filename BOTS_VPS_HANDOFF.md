@@ -69,7 +69,7 @@ The Android app points here via `android_app/.../data/AppConfig.kt`
   `server/lib/bot.js`). Keep answers short, one canonical form. `points` 10
   default; harder = 15–20.
 - `category` links questions to a theme; a summoned bot asks from the shared pool.
-- Current: **10 bots, 195 questions** (16–30 questions per bot across all categories).
+- Current: **10 bots, 350 questions** (31–50 questions per bot across all categories).
 
 ### Add more content (recommended flow)
 1. Edit `server/data/bots.json` locally — append to `bots` and/or `questions`.
