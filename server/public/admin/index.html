@@ -665,6 +665,13 @@
                 <button class="btn btn-outline" style="padding: 6px 10px; font-size: 11px;" onclick="saveRoomTopic('${r.id}')">حفظ</button>
               </div>
             </div>
+            <div style="margin-top: 6px;">
+              <label style="font-size: 11px; color: #38bdf8; display: block; margin-bottom: 4px;">🎬 فيديو اليوتيوب (رابط أو ID):</label>
+              <div style="display: flex; gap: 6px;">
+                <input type="text" id="yt-${r.id}" value="${r.youtubeId || ''}" placeholder="رابط يوتيوب أو معرف الفيديو" style="flex: 1; font-size: 12px; padding: 6px 8px;">
+                <button class="btn btn-outline" style="padding: 6px 10px; font-size: 11px;" onclick="saveRoomYoutube('${r.id}')">تحديث 📺</button>
+              </div>
+            </div>
           </div>
         </div>
       `).join('');
@@ -693,6 +700,26 @@
         });
         alert('✅ تم حفظ إعلان الروم بنجاح');
         fetchData();
+      } catch (e) {
+        alert('فشل الاتصال');
+      }
+    }
+
+    async function saveRoomYoutube(roomId) {
+      const youtubeId = document.getElementById(`yt-${roomId}`).value.trim();
+      try {
+        const res = await fetch('/api/admin/room-control', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ roomId, youtubeId })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          alert('🎬 تم تحديث وتزامن فيديو اليوتيوب للغرفة بنجاح');
+          fetchData();
+        } else {
+          alert(data.error || 'حدث خطأ');
+        }
       } catch (e) {
         alert('فشل الاتصال');
       }

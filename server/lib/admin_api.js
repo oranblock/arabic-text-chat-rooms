@@ -236,8 +236,10 @@ function createAdminRouter({ store, auth, online, io, quizBot, publicUser, rooms
     if (typeof lockPublic === 'boolean') room.lockPublic = lockPublic;
     if (typeof lockPrivate === 'boolean') room.lockPrivate = lockPrivate;
     if (typeof topic === 'string') room.topic = topic.slice(0, 100);
-    if (typeof youtubeId === 'string') {
-      room.youtubeId = youtubeId.trim();
+    if (typeof youtubeId === 'string' && youtubeId.trim()) {
+      const filter = require('./filter');
+      const cleanYt = filter.youtubeId(youtubeId) || youtubeId.trim();
+      room.youtubeId = cleanYt;
       io.to(room.id).emit('youtube_updated', { videoId: room.youtubeId, videoTitle: room.topic || 'يوتيوب الغرفة', status: 'play', by: req.adminUser.name });
     }
 
@@ -344,6 +346,7 @@ function handleAdminCommand(socket, user, room, text, ctx) {
         '/ban <اسم> - حظر عتاد الجهاز نهائياً\n' +
         '/promote <اسم> <MODERATOR|VIP_DIAMOND|REGULAR> - تغيير الرتبة\n' +
         '/quiz - طرح سؤال مسابقة الآن (مسابقات الكلمات المبعثرة)\n' +
+        '/yt <رابط أو ID> - تغيير وتزامن فيديو اليوتيوب بالروم\n' +
         '/broadcast <نص> - إرسال إعلان عام لكافة الغرف\n' +
         '/lock public|private on|off - قفل أو فتح الغرفة\n' +
         '/topic <نص> - تحديث إعلان الروم');
@@ -491,6 +494,26 @@ function handleAdminCommand(socket, user, room, text, ctx) {
       io.to(room.id).emit('room_updated', { id: room.id, topic: newTopic });
       io.emit('rooms', { rooms: roomsSummary() });
       reply('✅ تم تحديث إعلان الروم: ' + newTopic);
+      return true;
+    }
+
+    case 'yt':
+    case 'youtube':
+    case 'يوتيوب': {
+      const target = parts.slice(1).join(' ').trim();
+      if (!target) { reply('⚠️ اكتب رابط اليوتيوب أو معرّف الفيديو: /yt رابط_الفيديو'); return true; }
+      const filter = require('./filter');
+      const ytId = filter.youtubeId(target) || target;
+      room.youtubeId = ytId;
+      room.youtubeTitle = 'فيديو بواسطة ' + user.name;
+      store.save();
+      io.to(room.id).emit('youtube_updated', {
+        videoId: ytId,
+        videoTitle: room.youtubeTitle,
+        status: 'play',
+        by: user.name
+      });
+      reply('🎬 تم تغيير وتزامن فيديو اليوتيوب في الغرفة: ' + ytId);
       return true;
     }
 
