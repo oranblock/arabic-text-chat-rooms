@@ -142,6 +142,13 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
                 RoundBtn(Icons.Default.People, badge = users.size) { scope.launch { drawerState.open() } }
             }
 
+            if (me?.isGuest == true) {
+                Row(Modifier.fillMaxWidth().background(Color(0xFFFFF3CD)).padding(horizontal = 12.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Schedule, null, tint = Color(0xFF856404), modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("حساب مؤقت (زائر) — يُحذف تلقائياً بعد ساعة. سجّل حساب دائم للاحتفاظ برتبتك.", color = Color(0xFF856404), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
+                }
+            }
             val currentTopic = room?.topic?.takeIf { it.isNotBlank() }
             if (currentTopic != null || !ytId.isNullOrBlank()) {
                 Row(
@@ -913,14 +920,23 @@ private fun ModerationDialog(
 
             LazyColumn(Modifier.fillMaxWidth()) {
                 items(actions) { (a, label) ->
-                    Text(
-                        label,
-                        color = if (a == "ban_device") Color(0xFFD32F2F) else if (a == "unmute") Color(0xFF2E7D32) else Color(0xFF333333),
-                        fontSize = 14.sp,
-                        fontWeight = if (a == "unmute" || a == "ban_device") FontWeight.Bold else FontWeight.Normal,
-                        modifier = Modifier.fillMaxWidth().clickable { onAction(a) }.padding(vertical = 10.dp)
-                    )
-                    HorizontalDivider(color = BcInputBorder)
+                    val danger = a == "ban_device" || a == "kick"
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (danger) Color(0xFFFDECEC) else Color(0xFFF3F3F3))
+                            .clickable { onAction(a) }
+                            .padding(horizontal = 14.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            label,
+                            color = if (danger) Color(0xFFD32F2F) else if (a == "unmute") Color(0xFF2E7D32) else Color(0xFF333333),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }

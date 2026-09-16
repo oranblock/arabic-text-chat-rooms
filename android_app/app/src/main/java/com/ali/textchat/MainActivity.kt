@@ -97,7 +97,7 @@ class MainActivity : ComponentActivity() {
                                 onGuest = {
                                     busy = true; authError = null
                                     val guest = "زائر" + (1000..9999).random()
-                                    socket.register(guest, "guest-" + System.currentTimeMillis()) { ok, r -> afterAuth(ok, r) }
+                                    socket.register(guest, "guest-" + System.currentTimeMillis(), guest = true) { ok, r -> afterAuth(ok, r) }
                                 }
                             )
                         }

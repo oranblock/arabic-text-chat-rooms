@@ -25,7 +25,8 @@ data class ChatUser(
     val age: Int? = null,
     val gender: String = "",
     val country: String = "العراق",
-    val status: String = "online"
+    val status: String = "online",
+    val isGuest: Boolean = false
 )
 
 @Serializable

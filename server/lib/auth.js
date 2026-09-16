@@ -17,12 +17,12 @@ function newToken() {
   return crypto.randomBytes(24).toString('hex');
 }
 
-/** Names: 2-20 characters. Decorative unicode (like the site's 𓆩𝐒𓆪 names) is allowed. */
+/** Names: 2-50 characters. Decorative unicode (like the site's 𓆩𝐒𓆪 names) is allowed. */
 function validName(name) {
   if (typeof name !== 'string') return false;
   const trimmed = name.trim();
   const length = [...trimmed].length;
-  if (length < 2 || length > 20) return false;
+  if (length < 2 || length > 50) return false;
   for (const ch of trimmed) {
     const code = ch.codePointAt(0);
     if (code < 32 || ch === '<' || ch === '>') return false;

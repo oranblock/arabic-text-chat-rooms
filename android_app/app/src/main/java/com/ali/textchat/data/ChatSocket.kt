@@ -137,9 +137,9 @@ class ChatSocket(
         }
     }
 
-    fun register(name: String, password: String, onResult: (Boolean, String?) -> Unit) {
+    fun register(name: String, password: String, guest: Boolean = false, onResult: (Boolean, String?) -> Unit) {
         ensureSocket {
-            socket?.emit("register", JSONObject().apply { put("name", name); put("password", password) },
+            socket?.emit("register", JSONObject().apply { put("name", name); put("password", password); if (guest) put("guest", true) },
                 Ack { res -> handleAuth(res.firstOrNull(), onResult) })
         }
     }
@@ -346,7 +346,8 @@ class ChatSocket(
         age = o.optInt("age").takeIf { it > 0 },
         gender = o.optString("gender"),
         country = o.optString("country", "العراق"),
-        status = o.optString("status", "online")
+        status = o.optString("status", "online"),
+        isGuest = o.optBoolean("isGuest")
     )
 
     private fun parseUsers(a: JSONArray) = (0 until a.length()).map { parseUser(a.getJSONObject(it)) }

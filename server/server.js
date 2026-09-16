@@ -40,6 +40,7 @@ function publicUser(u) {
     customHexColor: u.customHexColor || null, country: u.country || 'العراق',
     bio: u.bio || '', age: u.age || null, gender: u.gender || '',
     isMuted: !!u.isMuted, isGhost: !!u.isGhost, status: u.status || 'online',
+    isGuest: !!u.isGuest, guestExpiresAt: u.guestExpiresAt || null,
     online: online.has(u.id)
   };
 }
@@ -101,6 +102,23 @@ function makeMessage(u, roomId, text, extra = {}) {
 
 const quizBot = new QuizBot(io, store, makeMessage);
 quizBot.start();
+
+// Purge expired guest accounts (temporary, deleted 1 hour after creation).
+setInterval(() => {
+  const t = now();
+  let changed = false;
+  for (const [id, u] of Object.entries(store.state.users)) {
+    if (u.isGuest && u.guestExpiresAt && u.guestExpiresAt < t) {
+      const p = online.get(id);
+      if (p) { io.to(p.socketId).emit('force_disconnect', { reason: 'انتهت مدة الحساب المؤقت (زائر)' }); online.delete(id); }
+      delete store.state.names[(u.name || '').trim().toLowerCase()];
+      for (const [tok, uid] of Object.entries(store.state.tokens)) if (uid === id) delete store.state.tokens[tok];
+      delete store.state.users[id];
+      changed = true;
+    }
+  }
+  if (changed) store.flush();
+}, 5 * 60 * 1000);
 
 const adminRouter = createAdminRouter({
   store, auth, online, io, quizBot, publicUser, roomsSummary, isStaff, rank, RANKS, now, makeMessage
@@ -285,8 +303,8 @@ io.on('connection', (socket) => {
   const currentUser = () => (socket.data.userId ? store.state.users[socket.data.userId] : null);
   const fail = (cb, message) => { if (typeof cb === 'function') cb({ ok: false, error: message }); };
 
-  socket.on('register', ({ name, password, avatarUrl } = {}, cb) => {
-    if (!auth.validName(name)) return fail(cb, 'الاسم يجب أن يكون بين 2 و20 حرفاً');
+  socket.on('register', ({ name, password, avatarUrl, guest } = {}, cb) => {
+    if (!auth.validName(name)) return fail(cb, 'الاسم يجب أن يكون بين 2 و50 حرفاً');
     if (typeof password !== 'string' || password.length < 3) return fail(cb, 'الرمز السري قصير جداً');
     const key = name.trim().toLowerCase();
     if (store.state.names[key]) return fail(cb, 'الاسم مستخدم مسبقاً');
@@ -294,13 +312,17 @@ io.on('connection', (socket) => {
     const { salt, hash } = auth.hashPassword(password);
     const id = store.nextId('u');
     const isFirst = Object.keys(store.state.users).length === 0;
+    const isGuest = !!guest && !isFirst;
+    // New members get a random pleasant color automatically (not a fixed one).
+    const AUTO_COLORS = ['#f3d5d5', '#e9f4d4', '#d5eef5', '#e9dcee', '#f3e6d4', '#fad5f6', '#ece9ff', '#FD62BE'];
     const user = {
       id, name: name.trim(), salt, hash,
       avatarUrl: avatarUrl || '',
       rank: isFirst ? 'OWNER' : 'REGULAR',
-      customHexColor: null, country: 'IQ',
+      customHexColor: isFirst ? null : AUTO_COLORS[Math.floor(Math.random() * AUTO_COLORS.length)], country: 'IQ',
       isMuted: process.env.AUTO_MUTE === 'true' ? !isFirst : false,
       isGhost: false, status: 'online',
+      isGuest, guestExpiresAt: isGuest ? now() + 3600000 : null,
       oldNames: [], createdAt: now(),
       devices: socket.deviceHash ? [socket.deviceHash] : []
     };
@@ -564,7 +586,7 @@ io.on('connection', (socket) => {
   socket.on('update_profile', ({ customHexColor, avatarUrl, status, bio, age, gender, country, displayName } = {}, cb) => {
     const user = currentUser();
     if (!user) return fail(cb, 'سجل الدخول');
-    if (typeof displayName === 'string' && displayName.trim().length >= 2) user.displayName = displayName.trim().slice(0, 40);
+    if (typeof displayName === 'string' && displayName.trim().length >= 2) user.displayName = displayName.trim().slice(0, 50);
     if (typeof avatarUrl === 'string') user.avatarUrl = avatarUrl.slice(0, 300);
     if (typeof status === 'string' && ['online', 'away', 'busy'].includes(status)) user.status = status;
     if (typeof bio === 'string') user.bio = bio.slice(0, 160);
