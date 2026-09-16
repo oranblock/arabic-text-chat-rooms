@@ -65,9 +65,33 @@ case "$FLOW" in
     shot "05-profile-vip-palette"
     back
 
-    home;            shot "06-home"
-    launch_activity "$main"; shot "07-resume"
-    rotate_report;   shot "08-after-rotate"
+    # Test YouTube Player: initial seeded video
+    send_step "verify youtube player in-chat"
+    sleep 2
+    shot "06-youtube-player-initial"
+
+    # Update YouTube video via admin room-control API to P82XPloDtMc
+    send_step "trigger youtube sync to P82XPloDtMc"
+    curl -sf -X POST http://127.0.0.1:3001/api/admin/login -H "Content-Type: application/json" -d '{"name":"علي","password":"demo123"}' > /tmp/admin_auth.json || true
+    ADMIN_TOK="$(grep -o '"token":"[^"]*' /tmp/admin_auth.json | cut -d'"' -f4)"
+    if [ -n "$ADMIN_TOK" ]; then
+      curl -sf -X POST http://127.0.0.1:3001/api/admin/room-control -H "Authorization: Bearer $ADMIN_TOK" -H "Content-Type: application/json" -d '{"roomId":"iraq","youtubeId":"P82XPloDtMc"}' || true
+    fi
+    sleep 3
+    shot "07-youtube-player-updated"
+
+    # Toggle YouTube hide button in banner
+    send_step "toggle youtube player hide/show"
+    tap 980 140
+    sleep 1
+    shot "08-youtube-player-hidden"
+    tap 980 140
+    sleep 1
+    shot "09-youtube-player-restored"
+
+    home;            shot "10-home"
+    launch_activity "$main"; shot "11-resume"
+    rotate_report;   shot "12-after-rotate"
     ;;
 esac
 

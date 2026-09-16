@@ -114,14 +114,21 @@ fun YouTubeInChatPlayer(
                     }
                 },
                 update = { web ->
-                    val html = """
-                        <html><body style="margin:0;background:#000">
-                        <iframe width="100%" height="100%"
-                          src="https://www.youtube-nocookie.com/embed/$videoId?autoplay=1&playsinline=1&rel=0"
-                          frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
-                        </body></html>
-                    """.trimIndent()
-                    web.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "utf-8", null)
+                    val currentId = web.tag as? String
+                    if (currentId != videoId) {
+                        web.tag = videoId
+                        val html = """
+                            <!DOCTYPE html><html><head>
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+                            <style>body,html{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden;}</style>
+                            </head><body>
+                            <iframe width="100%" height="100%"
+                              src="https://www.youtube.com/embed/$videoId?autoplay=1&playsinline=1&rel=0"
+                              frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+                            </body></html>
+                        """.trimIndent()
+                        web.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "utf-8", null)
+                    }
                 }
             )
         }

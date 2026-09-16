@@ -26,7 +26,7 @@ object Session {
     fun serverUrl(context: Context): String {
         val saved = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_SERVER_URL, null)
-        return if (!saved.isNullOrBlank()) saved else AppConfig.DEFAULT_SERVER_URL
+        return if (!saved.isNullOrBlank()) saved else AppConfig.defaultUrl()
     }
 
     fun clear(context: Context) = saveToken(context, null)
