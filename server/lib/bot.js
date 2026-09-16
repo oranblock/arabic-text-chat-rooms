@@ -236,13 +236,11 @@ class BotManager {
     const bot = this.getBot(targetBotId);
 
     // Pick a question (matching category if possible)
-    let candidates = this.questions;
-    if (bot.role === 'scramble') {
-      candidates = this.questions.filter(q => q.category === 'scramble');
-    } else if (bot.role === 'proverbs') {
-      candidates = this.questions.filter(q => q.category === 'proverbs');
-    } else if (bot.role === 'religious') {
-      candidates = this.questions.filter(q => q.category === 'religious');
+    let candidates = [];
+    if (bot.role === 'trivia') {
+      candidates = this.questions.filter(q => ['culture', 'geography', 'history', 'general', 'trivia'].includes(q.category));
+    } else if (bot.role) {
+      candidates = this.questions.filter(q => q.category === bot.role);
     }
     if (!candidates || candidates.length === 0) candidates = this.questions;
 
