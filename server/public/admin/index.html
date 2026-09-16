@@ -133,6 +133,7 @@
       .section-title { font-size: 16px; }
       .search-box { max-width: 100%; }
       .login-box { padding: 22px; }
+      .resp2 { grid-template-columns: 1fr !important; }
     }
     @media (max-width: 420px) {
       .stats-grid { grid-template-columns: 1fr 1fr; }
@@ -317,7 +318,7 @@
             </select>
           </div>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+        <div class="resp2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
           <div>
             <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">وصف الغرفة:</label>
             <input type="text" id="new-room-desc" placeholder="وصف قصير يظهر في قائمة الغرف" style="width: 100%; font-size: 13px; padding: 8px 10px;">
@@ -432,7 +433,7 @@
       </div>
 
       <!-- SECTION 3: Bots Roster & Leaderboard -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; flex-wrap: wrap;">
+      <div class="resp2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; flex-wrap: wrap;">
         <div>
           <h4 style="margin-bottom: 12px; color: var(--gold);">🏆 قائمة المتصدرين في النقاط</h4>
           <div class="table-responsive">
