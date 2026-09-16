@@ -122,19 +122,56 @@ app.get('/player/:videoId', (req, res) => {
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     html, body { width:100%; height:100%; background:#000; overflow:hidden; }
-    #player-container { position:relative; width:100%; height:100%; }
-    iframe { width:100%; height:100%; position:absolute; top:0; left:0; border:0; }
+    #player { width:100%; height:100%; position:absolute; top:0; left:0; }
+    #end-overlay {
+      display:none; position:absolute; top:0; left:0; width:100%; height:100%;
+      background:#0f172a; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center; text-align:center; padding:16px;
+      font-family:system-ui, -apple-system, sans-serif; z-index:20;
+    }
   </style>
 </head>
 <body>
-  <div id="player-container">
-    <iframe
-      id="yt"
-      src="https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&controls=1&enablejsapi=1&rel=0&start=${start}"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-      allowfullscreen>
-    </iframe>
+  <div id="player"></div>
+  <div id="end-overlay">
+    <div style="font-size:22px; margin-bottom:8px;">✅ انتهى الفيديو</div>
+    <div style="font-size:13px; color:#94a3b8;">تم إيقاف المشغل التلقائي للغرفة</div>
   </div>
+
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script>
+    var player;
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        height: '100%',
+        width: '100%',
+        videoId: '${videoId}',
+        playerVars: {
+          autoplay: 1,
+          playsinline: 1,
+          controls: 1,
+          rel: 0,
+          modestbranding: 1,
+          start: ${start},
+          origin: window.location.origin
+        },
+        events: {
+          'onStateChange': onPlayerStateChange
+        }
+      });
+    }
+
+    function onPlayerStateChange(event) {
+      // 0 = YT.PlayerState.ENDED
+      if (event.data === 0) {
+        try {
+          document.getElementById('player').style.display = 'none';
+          document.getElementById('end-overlay').style.display = 'flex';
+          window.location.href = 'ali-chat://video-ended?videoId=${videoId}';
+        } catch(e) {}
+      }
+    }
+  </script>
 </body>
 </html>`);
 });
@@ -237,6 +274,7 @@ io.on('connection', (socket) => {
           youtubeId: room.youtubeId || '',
           youtubeTitle: room.youtubeTitle || '',
           youtubeStartedAt: room.youtubeStartedAt || 0,
+          youtubeStartedBy: room.youtubeStartedBy || '',
           youtubeOffset: room.youtubeStartedAt ? Math.max(0, Math.floor((now() - room.youtubeStartedAt) / 1000)) : 0,
           youtubeQueue: room.youtubeQueue || []
         },
@@ -552,16 +590,72 @@ io.on('connection', (socket) => {
       room.youtubeId = videoId;
       if (videoTitle) room.youtubeTitle = videoTitle;
       room.youtubeStartedAt = now();
+      room.youtubeStartedBy = user.name;
       store.save();
     }
     io.to(p.roomId).emit('youtube_updated', {
       videoId,
       videoTitle: videoTitle || room?.youtubeTitle || 'يوتيوب مشترك',
       startedAt: room?.youtubeStartedAt || now(),
+      startedBy: user.name,
       offset: 0,
       status: status || 'play',
       by: user.name
     });
+    if (typeof cb === 'function') cb({ ok: true });
+  });
+
+  socket.on('video_finished', ({ videoId } = {}, cb) => {
+    const user = currentUser();
+    const p = user && online.get(user.id);
+    if (!p) return;
+    const room = store.state.rooms[p.roomId];
+    if (!room || !room.youtubeId) return;
+
+    // Advance queue or stop player cleanly
+    const q = room.youtubeQueue || [];
+    if (q.length > 0) {
+      const nextItem = q.shift();
+      room.youtubeId = nextItem.videoId;
+      room.youtubeTitle = nextItem.title || ('فيديو بواسطة ' + nextItem.by);
+      room.youtubeStartedAt = now();
+      room.youtubeStartedBy = nextItem.by;
+      store.save();
+      io.to(room.id).emit('youtube_updated', {
+        videoId: nextItem.videoId,
+        videoTitle: room.youtubeTitle,
+        startedAt: room.youtubeStartedAt,
+        startedBy: nextItem.by,
+        offset: 0,
+        status: 'play',
+        by: nextItem.by
+      });
+      io.to(room.id).emit('system_message', {
+        roomId: room.id,
+        text: `🎬 بدأ تلقائياً الفيديو التالي في قائمة الانتظار: ${room.youtubeTitle} (بواسطة ${nextItem.by}) 🎵`,
+        at: now()
+      });
+    } else {
+      room.youtubeId = '';
+      room.youtubeTitle = '';
+      room.youtubeStartedAt = 0;
+      room.youtubeStartedBy = '';
+      store.save();
+      io.to(room.id).emit('youtube_updated', {
+        videoId: '',
+        videoTitle: '',
+        startedAt: 0,
+        startedBy: '',
+        offset: 0,
+        status: 'ended',
+        by: 'system'
+      });
+      io.to(room.id).emit('system_message', {
+        roomId: room.id,
+        text: `🏁 اكتمل عرض الفيديو وتوقف المشغل بنجاح. أرسل /yt أو /q لتشغيل فيديو جديد 🎵`,
+        at: now()
+      });
+    }
     if (typeof cb === 'function') cb({ ok: true });
   });
 

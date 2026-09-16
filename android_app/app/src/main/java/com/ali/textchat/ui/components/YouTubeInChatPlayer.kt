@@ -39,8 +39,10 @@ import androidx.compose.ui.viewinterop.AndroidView
 fun YouTubeInChatPlayer(
     videoId: String,
     videoTitle: String,
+    startedBy: String = "",
     startSeconds: Int = 0,
     onClose: () -> Unit,
+    onVideoEnded: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var isMinimized by remember { mutableStateOf(false) }
@@ -69,14 +71,26 @@ fun YouTubeInChatPlayer(
                 Text("▶ يوتيوب", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.width(8.dp))
-            Text(
-                text = videoTitle.ifBlank { "مشغل يوتيوب الغرفة" },
-                color = Color.White,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                modifier = Modifier.weight(1f)
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = videoTitle.ifBlank { "مشغل يوتيوب الغرفة" },
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+                if (startedBy.isNotBlank()) {
+                    Text(
+                        text = "بواسطة: $startedBy 👤",
+                        color = Color(0xFF38BDF8),
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                }
+            }
             IconButton(
                 onClick = {
                     try {
@@ -157,11 +171,21 @@ fun YouTubeInChatPlayer(
                             webViewClient = object : android.webkit.WebViewClient() {
                                 override fun shouldOverrideUrlLoading(view: WebView?, request: android.webkit.WebResourceRequest?): Boolean {
                                     val u = request?.url?.toString() ?: return false
-                                    if (u.contains("youtube.com") || u.contains("googlevideo.com") || u.contains("trycloudflare.com") || u.contains("localhost")) return false
-                                    return try {
-                                        ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u)))
-                                        true
-                                    } catch (_: Exception) { false }
+                                    if (u.startsWith("ali-chat://video-ended")) {
+                                        onVideoEnded(videoId)
+                                        return true
+                                    }
+                                    if (u.contains("/player/")) {
+                                        return false
+                                    }
+                                    // Block any navigation to full YouTube browser inside this WebView
+                                    if (u.contains("youtube.com") || u.contains("youtu.be") || u.startsWith("http://") || u.startsWith("https://")) {
+                                        try {
+                                            ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u)))
+                                        } catch (_: Exception) {}
+                                        return true // Never turn into a web browser
+                                    }
+                                    return true
                                 }
                             }
                         }

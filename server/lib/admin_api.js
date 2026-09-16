@@ -327,16 +327,25 @@ function handleAdminCommand(socket, user, room, text, ctx) {
       reply('⚠️ اكتب رابط اليوتيوب أو معرّف الفيديو: /yt رابط_الفيديو');
       return true;
     }
+    const isStaffOrVip = user.rank === 'OWNER' || user.rank === 'MODERATOR' || user.rank === 'VIP_DIAMOND';
+    // Anti-spam: Prevent regular users from cutting off an active video that started < 2 mins ago
+    const isCurrentlyPlaying = room.youtubeId && room.youtubeStartedAt && (now() - room.youtubeStartedAt < 120000);
+    if (!isStaffOrVip && isCurrentlyPlaying) {
+      reply(`⚠️ يوجد فيديو معروض حالياً (${room.youtubeTitle || 'فيديو الروم'}). لحفظ النظام يرجى إضافته لقائمة الانتظار عبر: /q رابط_الفيديو 📋`);
+      return true;
+    }
     const filter = require('./filter');
     const ytId = filter.youtubeId(target) || target;
     room.youtubeId = ytId;
     room.youtubeTitle = 'فيديو بواسطة ' + user.name;
     room.youtubeStartedAt = now();
+    room.youtubeStartedBy = user.name;
     store.save();
     io.to(room.id).emit('youtube_updated', {
       videoId: ytId,
       videoTitle: room.youtubeTitle,
       startedAt: room.youtubeStartedAt,
+      startedBy: user.name,
       offset: 0,
       status: 'play',
       by: user.name
@@ -344,6 +353,35 @@ function handleAdminCommand(socket, user, room, text, ctx) {
     io.to(room.id).emit('system_message', {
       roomId: room.id,
       text: `🎬 قام ${user.name} بتشغيل فيديو يوتيوب متزامن بالروم 🎵`,
+      at: now()
+    });
+    return true;
+  }
+
+  // Stop video command
+  if (cmd === 'stop_yt' || cmd === 'stop' || cmd === 'ايقاف' || cmd === 'وقف') {
+    const isStaffOrVip = user.rank === 'OWNER' || user.rank === 'MODERATOR' || user.rank === 'VIP_DIAMOND';
+    if (!isStaffOrVip) {
+      reply('⚠️ إيقاف الفيديو مخصص للمشرفين والأعضاء المميزين VIP 💎');
+      return true;
+    }
+    room.youtubeId = '';
+    room.youtubeTitle = '';
+    room.youtubeStartedAt = 0;
+    room.youtubeStartedBy = '';
+    store.save();
+    io.to(room.id).emit('youtube_updated', {
+      videoId: '',
+      videoTitle: '',
+      startedAt: 0,
+      startedBy: '',
+      offset: 0,
+      status: 'stop',
+      by: user.name
+    });
+    io.to(room.id).emit('system_message', {
+      roomId: room.id,
+      text: `🛑 قام ${user.name} بإيقاف الفيديو في الغرفة`,
       at: now()
     });
     return true;
@@ -390,18 +428,20 @@ function handleAdminCommand(socket, user, room, text, ctx) {
     room.youtubeId = nextItem.videoId;
     room.youtubeTitle = nextItem.title;
     room.youtubeStartedAt = now();
+    room.youtubeStartedBy = nextItem.by;
     store.save();
     io.to(room.id).emit('youtube_updated', {
       videoId: nextItem.videoId,
       videoTitle: nextItem.title,
       startedAt: room.youtubeStartedAt,
+      startedBy: nextItem.by,
       offset: 0,
       status: 'play',
       by: user.name
     });
     io.to(room.id).emit('system_message', {
       roomId: room.id,
-      text: `⏭️ قام ${user.name} بتخطي الفيديو وتشغيل التالي: ${nextItem.title}`,
+      text: `⏭️ قام ${user.name} بتخطي الفيديو وتشغيل التالي: ${nextItem.title} (بواسطة ${nextItem.by})`,
       at: now()
     });
     return true;

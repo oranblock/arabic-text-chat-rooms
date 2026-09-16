@@ -57,6 +57,7 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
     val error by socket.errors.collectAsState()
     val ytId by socket.youtubeId.collectAsState()
     val ytTitle by socket.youtubeTitle.collectAsState()
+    val ytBy by socket.youtubeBy.collectAsState()
     val ytOffset by socket.youtubeOffset.collectAsState()
     val notifications by socket.notifications.collectAsState()
     val threads by socket.threads.collectAsState()
@@ -162,8 +163,13 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
                     YouTubeInChatPlayer(
                         videoId = ytId ?: "",
                         videoTitle = ytTitle ?: "يوتيوب مشترك في الغرفة",
+                        startedBy = ytBy ?: "",
                         startSeconds = ytOffset,
-                        onClose = { ytVisible = false }
+                        onClose = { ytVisible = false },
+                        onVideoEnded = { finishedId ->
+                            socket.videoFinished(finishedId)
+                            ytVisible = false
+                        }
                     )
                 }
                 if (error != null) {

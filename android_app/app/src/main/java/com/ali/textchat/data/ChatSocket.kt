@@ -48,6 +48,8 @@ class ChatSocket(
     val youtubeId: StateFlow<String?> = _youtubeId
     private val _youtubeTitle = MutableStateFlow<String?>(null)
     val youtubeTitle: StateFlow<String?> = _youtubeTitle
+    private val _youtubeBy = MutableStateFlow<String?>(null)
+    val youtubeBy: StateFlow<String?> = _youtubeBy
     private val _youtubeOffset = MutableStateFlow<Int>(0)
     val youtubeOffset: StateFlow<Int> = _youtubeOffset
     private val _notifications = MutableStateFlow<List<String>>(emptyList())
@@ -114,6 +116,8 @@ class ChatSocket(
                     _youtubeId.value = if (vId.isNotBlank()) vId else null
                     val vTitle = obj.optString("videoTitle")
                     _youtubeTitle.value = if (vTitle.isNotBlank()) vTitle else null
+                    val vBy = obj.optString("startedBy").ifBlank { obj.optString("by") }
+                    _youtubeBy.value = if (vBy.isNotBlank() && vBy != "system") vBy else null
                     _youtubeOffset.value = obj.optInt("offset", 0)
                 }
             }
@@ -166,6 +170,8 @@ class ChatSocket(
                 _youtubeId.value = if (yId.isNotBlank()) yId else null
                 val yTitle = r.optString("youtubeTitle")
                 _youtubeTitle.value = if (yTitle.isNotBlank()) yTitle else null
+                val yBy = r.optString("youtubeStartedBy").ifBlank { r.optString("by") }
+                _youtubeBy.value = if (yBy.isNotBlank() && yBy != "system") yBy else null
                 _youtubeOffset.value = r.optInt("youtubeOffset", 0)
             }
             o.optJSONObject("me")?.let { _me.value = parseUser(it) }
@@ -293,6 +299,9 @@ class ChatSocket(
 
     fun syncYoutube(videoId: String, statusValue: String) =
         socket?.emit("sync_youtube", JSONObject().apply { put("videoId", videoId); put("status", statusValue) })
+
+    fun videoFinished(videoId: String) =
+        socket?.emit("video_finished", JSONObject().apply { put("videoId", videoId) })
 
     fun clearError() { _errors.value = null }
 
