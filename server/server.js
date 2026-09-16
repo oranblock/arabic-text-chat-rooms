@@ -33,6 +33,7 @@ const hhmm = () => new Date().toLocaleTimeString('en-GB', { hour: '2-digit', min
 
 const online = new Map();       // userId -> { socketId, roomId }
 const lastSent = new Map();     // userId -> { at, text }
+const registerAttempts = new Map(); // (deviceHash or IP) -> [timestamp]
 
 function publicUser(u) {
   return {
@@ -304,6 +305,22 @@ io.on('connection', (socket) => {
   const fail = (cb, message) => { if (typeof cb === 'function') cb({ ok: false, error: message }); };
 
   socket.on('register', ({ name, password, avatarUrl, guest } = {}, cb) => {
+    const clientKey = socket.deviceHash || socket.handshake.address || 'unknown';
+    const nowTime = now();
+    const attempts = (registerAttempts.get(clientKey) || []).filter(t => nowTime - t < 60000);
+    if (attempts.length >= 3) {
+      return fail(cb, 'تم تجاوز حد محاولات التسجيل السريعة. يرجى الانتظار دقيقة.');
+    }
+    attempts.push(nowTime);
+    registerAttempts.set(clientKey, attempts);
+
+    if (socket.deviceHash) {
+      const existing = store.state.deviceAccounts[socket.deviceHash] || [];
+      if (existing.length >= 5) {
+        return fail(cb, 'تم تجاوز الحد الأقصى للحسابات المسموح بإنشائها من هذا الجهاز (5 حسابات كحد أقصى)');
+      }
+    }
+
     if (!auth.validName(name)) return fail(cb, 'الاسم يجب أن يكون بين 2 و50 حرفاً');
     if (typeof password !== 'string' || password.length < 3) return fail(cb, 'الرمز السري قصير جداً');
     const key = name.trim().toLowerCase();
