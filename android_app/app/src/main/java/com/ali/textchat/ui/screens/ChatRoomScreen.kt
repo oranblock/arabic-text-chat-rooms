@@ -122,14 +122,19 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
                 HeadOption(Icons.Default.People, users.size) { scope.launch { drawerState.open() } }
             }
 
-            room?.topic?.takeIf { it.isNotBlank() }?.let { t ->
+            val currentTopic = room?.topic?.takeIf { it.isNotBlank() }
+            if (currentTopic != null || !ytId.isNullOrBlank()) {
                 Row(
                     Modifier.fillMaxWidth().background(Color(0xFFDCE6FF)).padding(horizontal = 12.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Campaign, null, tint = Color(0xFF0A1E4D), modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(t, color = Color(0xFF0A1E4D), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.weight(1f))
+                    if (currentTopic != null) {
+                        Icon(Icons.Default.Campaign, null, tint = Color(0xFF0A1E4D), modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(currentTopic, color = Color(0xFF0A1E4D), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.weight(1f))
+                    } else {
+                        Spacer(Modifier.weight(1f))
+                    }
                     if (!ytId.isNullOrBlank()) {
                         Row(
                             modifier = Modifier

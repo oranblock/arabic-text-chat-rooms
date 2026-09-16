@@ -320,6 +320,32 @@ function handleAdminCommand(socket, user, room, text, ctx) {
     socket.emit('error_alert', { message: msg });
   };
 
+  // Commands available to all users in the room
+  if (cmd === 'yt' || cmd === 'youtube' || cmd === 'يوتيوب') {
+    const target = parts.slice(1).join(' ').trim();
+    if (!target) {
+      reply('⚠️ اكتب رابط اليوتيوب أو معرّف الفيديو: /yt رابط_الفيديو');
+      return true;
+    }
+    const filter = require('./filter');
+    const ytId = filter.youtubeId(target) || target;
+    room.youtubeId = ytId;
+    room.youtubeTitle = 'فيديو بواسطة ' + user.name;
+    store.save();
+    io.to(room.id).emit('youtube_updated', {
+      videoId: ytId,
+      videoTitle: room.youtubeTitle,
+      status: 'play',
+      by: user.name
+    });
+    io.to(room.id).emit('system_message', {
+      roomId: room.id,
+      text: `🎬 قام ${user.name} بتشغيل فيديو يوتيوب جديد بالروم`,
+      at: now()
+    });
+    return true;
+  }
+
   if (!isStaff(user)) {
     reply('⚠️ أوامر الإدارة متاحة للمشرفين والمدير فقط');
     return true;

@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -22,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,6 +43,7 @@ fun YouTubeInChatPlayer(
     modifier: Modifier = Modifier
 ) {
     var isMinimized by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Column(
         modifier = modifier
@@ -76,6 +79,26 @@ fun YouTubeInChatPlayer(
                 modifier = Modifier.weight(1f)
             )
             IconButton(
+                onClick = {
+                    try {
+                        val intent = android.content.Intent(
+                            android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse("https://www.youtube.com/watch?v=$videoId")
+                        )
+                        context.startActivity(intent)
+                    } catch (_: Exception) {}
+                },
+                modifier = Modifier.size(26.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.OpenInNew,
+                    contentDescription = "فتح في يوتيوب",
+                    tint = Color.LightGray,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Spacer(Modifier.width(2.dp))
+            IconButton(
                 onClick = { isMinimized = !isMinimized },
                 modifier = Modifier.size(26.dp)
             ) {
@@ -86,7 +109,7 @@ fun YouTubeInChatPlayer(
                     modifier = Modifier.size(18.dp)
                 )
             }
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(2.dp))
             IconButton(
                 onClick = onClose,
                 modifier = Modifier.size(26.dp)
@@ -100,37 +123,47 @@ fun YouTubeInChatPlayer(
             }
         }
 
-        AnimatedVisibility(visible = !isMinimized && videoId.isNotBlank()) {
-            AndroidView(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp),
-                factory = { ctx ->
-                    WebView(ctx).apply {
-                        settings.javaScriptEnabled = true
-                        settings.mediaPlaybackRequiresUserGesture = false
-                        settings.domStorageEnabled = true
-                        webChromeClient = WebChromeClient()
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(if (isMinimized) 0.dp else 200.dp)
+        ) {
+            if (videoId.isNotBlank()) {
+                AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = { ctx ->
+                        WebView(ctx).apply {
+                            settings.apply {
+                                javaScriptEnabled = true
+                                domStorageEnabled = true
+                                databaseEnabled = true
+                                mediaPlaybackRequiresUserGesture = false
+                                loadsImagesAutomatically = true
+                                userAgentString = "Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                            }
+                            webChromeClient = WebChromeClient()
+                            webViewClient = object : android.webkit.WebViewClient() {
+                                override fun shouldOverrideUrlLoading(view: WebView?, request: android.webkit.WebResourceRequest?): Boolean {
+                                    val u = request?.url?.toString() ?: return false
+                                    if (u.contains("youtube.com/embed")) return false
+                                    return try {
+                                        ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u)))
+                                        true
+                                    } catch (_: Exception) { false }
+                                }
+                            }
+                        }
+                    },
+                    update = { web ->
+                        val targetUrl = "https://www.youtube.com/embed/$videoId?autoplay=1&playsinline=1&enablejsapi=1&rel=0"
+                        val currentId = web.tag as? String
+                        if (currentId != videoId) {
+                            web.tag = videoId
+                            web.loadUrl(targetUrl)
+                        }
                     }
-                },
-                update = { web ->
-                    val currentId = web.tag as? String
-                    if (currentId != videoId) {
-                        web.tag = videoId
-                        val html = """
-                            <!DOCTYPE html><html><head>
-                            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-                            <style>body,html{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden;}</style>
-                            </head><body>
-                            <iframe width="100%" height="100%"
-                              src="https://www.youtube.com/embed/$videoId?autoplay=1&playsinline=1&rel=0"
-                              frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
-                            </body></html>
-                        """.trimIndent()
-                        web.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "utf-8", null)
-                    }
-                }
-            )
+                )
+            }
         }
     }
 }
