@@ -48,6 +48,8 @@ class ChatSocket(
     val youtubeId: StateFlow<String?> = _youtubeId
     private val _youtubeTitle = MutableStateFlow<String?>("موسيقى هادئة - ديوانية العراق 🎵")
     val youtubeTitle: StateFlow<String?> = _youtubeTitle
+    private val _youtubeOffset = MutableStateFlow<Int>(0)
+    val youtubeOffset: StateFlow<Int> = _youtubeOffset
     private val _notifications = MutableStateFlow<List<String>>(emptyList())
     val notifications: StateFlow<List<String>> = _notifications
     private val _threads = MutableStateFlow<List<PmThread>>(emptyList())
@@ -112,6 +114,7 @@ class ChatSocket(
                     if (vId.isNotBlank()) _youtubeId.value = vId
                     val vTitle = obj.optString("videoTitle")
                     if (vTitle.isNotBlank()) _youtubeTitle.value = vTitle
+                    _youtubeOffset.value = obj.optInt("offset", 0)
                 }
             }
             s.on("force_disconnect") { a ->
@@ -163,6 +166,7 @@ class ChatSocket(
                 if (yId.isNotBlank()) _youtubeId.value = yId
                 val yTitle = r.optString("youtubeTitle")
                 if (yTitle.isNotBlank()) _youtubeTitle.value = yTitle
+                _youtubeOffset.value = r.optInt("youtubeOffset", 0)
             }
             o.optJSONObject("me")?.let { _me.value = parseUser(it) }
             o.optJSONArray("messages")?.let { _messages.value = parseMessages(it) }
@@ -184,11 +188,24 @@ class ChatSocket(
         })
     }
 
-    fun updateProfile(color: String?, avatarUrl: String?, statusValue: String?, onResult: (Boolean, String?) -> Unit) {
+    fun updateProfile(
+        color: String?,
+        avatarUrl: String?,
+        statusValue: String?,
+        bio: String? = null,
+        age: Int? = null,
+        gender: String? = null,
+        country: String? = null,
+        onResult: (Boolean, String?) -> Unit
+    ) {
         socket?.emit("update_profile", JSONObject().apply {
             if (color != null) put("customHexColor", color)
             if (avatarUrl != null) put("avatarUrl", avatarUrl)
             if (statusValue != null) put("status", statusValue)
+            if (bio != null) put("bio", bio)
+            if (age != null) put("age", age)
+            if (gender != null) put("gender", gender)
+            if (country != null) put("country", country)
         }, Ack { res ->
             val o = res.firstOrNull() as? JSONObject
             if (o?.optBoolean("ok") == true) { o.optJSONObject("user")?.let { _me.value = parseUser(it) }; onResult(true, null) }
@@ -292,7 +309,12 @@ class ChatSocket(
         customHexColor = o.optString("customHexColor").takeIf { it.isNotBlank() && it != "null" },
         deviceId = deviceHash,
         isMuted = o.optBoolean("isMuted"),
-        isGhost = o.optBoolean("isGhost")
+        isGhost = o.optBoolean("isGhost"),
+        bio = o.optString("bio"),
+        age = o.optInt("age").takeIf { it > 0 },
+        gender = o.optString("gender"),
+        country = o.optString("country", "العراق"),
+        status = o.optString("status", "online")
     )
 
     private fun parseUsers(a: JSONArray) = (0 until a.length()).map { parseUser(a.getJSONObject(it)) }

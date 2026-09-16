@@ -18,9 +18,14 @@ data class ChatUser(
     val avatarUrl: String,
     val rank: UserRank = UserRank.REGULAR,
     val customHexColor: String? = null,
-    val deviceId: String,
+    val deviceId: String = "",
     val isMuted: Boolean = false,
-    val isGhost: Boolean = false
+    val isGhost: Boolean = false,
+    val bio: String = "",
+    val age: Int? = null,
+    val gender: String = "",
+    val country: String = "العراق",
+    val status: String = "online"
 )
 
 @Serializable

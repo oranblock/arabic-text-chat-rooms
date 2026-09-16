@@ -39,6 +39,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 fun YouTubeInChatPlayer(
     videoId: String,
     videoTitle: String,
+    startSeconds: Int = 0,
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -163,10 +164,11 @@ fun YouTubeInChatPlayer(
                         }
                     },
                     update = { web ->
-                        val currentId = web.tag as? String
-                        if (currentId != videoId) {
-                            web.tag = videoId
-                            val remoteUrl = "${com.ali.textchat.data.AppConfig.defaultUrl()}/player/$videoId"
+                        val tagKey = "$videoId:$startSeconds"
+                        val currentTag = web.tag as? String
+                        if (currentTag != tagKey) {
+                            web.tag = tagKey
+                            val remoteUrl = "${com.ali.textchat.data.AppConfig.defaultUrl()}/player/$videoId?start=$startSeconds"
                             web.loadUrl(remoteUrl)
                         }
                     }

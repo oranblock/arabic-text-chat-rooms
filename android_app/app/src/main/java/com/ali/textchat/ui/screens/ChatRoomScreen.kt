@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -54,6 +56,7 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
     val error by socket.errors.collectAsState()
     val ytId by socket.youtubeId.collectAsState()
     val ytTitle by socket.youtubeTitle.collectAsState()
+    val ytOffset by socket.youtubeOffset.collectAsState()
     val notifications by socket.notifications.collectAsState()
     val threads by socket.threads.collectAsState()
     val requests by socket.requests.collectAsState()
@@ -154,6 +157,7 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
                     YouTubeInChatPlayer(
                         videoId = ytId ?: "",
                         videoTitle = ytTitle ?: "يوتيوب مشترك في الغرفة",
+                        startSeconds = ytOffset,
                         onClose = { ytVisible = false }
                     )
                 }
@@ -199,8 +203,8 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
 
     if (showRooms) RoomsDialog(rooms, room?.id, onPick = { socket.joinRoom(it); showRooms = false }, onDismiss = { showRooms = false })
     if (showProfile) me?.let { u ->
-        ProfileDialog(u, onLogout = { showProfile = false; onLogout() }, onDismiss = { showProfile = false }) { color, avatar, status ->
-            socket.updateProfile(color, avatar, status) { _, _ -> }; showProfile = false
+        ProfileDialog(u, onLogout = { showProfile = false; onLogout() }, onDismiss = { showProfile = false }) { color, avatar, status, bio, age, gender, country ->
+            socket.updateProfile(color, avatar, status, bio, age, gender, country) { _, _ -> }; showProfile = false
         }
     }
     if (showNotifs) NotificationsDialog(notifications, onClear = { socket.clearNotifications(); showNotifs = false }, onDismiss = { showNotifs = false })
@@ -295,20 +299,42 @@ private fun RoomsDialog(rooms: List<ChatRoom>, currentId: String?, onPick: (Stri
 }
 
 @Composable
-private fun ProfileDialog(me: ChatUser, onLogout: () -> Unit, onDismiss: () -> Unit, onSave: (color: String?, avatar: String?, status: String?) -> Unit) {
+private fun ProfileDialog(
+    me: ChatUser,
+    onLogout: () -> Unit,
+    onDismiss: () -> Unit,
+    onSave: (color: String?, avatar: String?, status: String?, bio: String?, age: Int?, gender: String?, country: String?) -> Unit
+) {
     val colors = listOf("#D31027", "#7929FF", "#03ADD8", "#28C76F", "#CC9835", "#CE34E9", "#2196F3", "#FF9800")
     val avatarSeeds = listOf("Iraq", "Baghdad", "Basra", "Najaf", "Karbala", "Mosul", "Kufa", "Anbar")
     var picked by remember { mutableStateOf(me.customHexColor) }
     var avatar by remember { mutableStateOf(me.avatarUrl.ifBlank { null }) }
+    var bio by remember { mutableStateOf(me.bio) }
+    var age by remember { mutableStateOf(me.age?.toString() ?: "") }
+    var gender by remember { mutableStateOf(if (me.gender.isNotBlank()) me.gender else "ذكر") }
+    var country by remember { mutableStateOf(if (me.country.isNotBlank()) me.country else "بغداد") }
     val vip = me.rank == UserRank.VIP_DIAMOND || me.rank == UserRank.MODERATOR || me.rank == UserRank.OWNER
     val loader = com.ali.textchat.ui.util.svgCapableLoader(androidx.compose.ui.platform.LocalContext.current)
+    val scroll = rememberScrollState()
+
     Dialog(onDismiss) {
-        Column(Modifier.clip(RoundedCornerShape(14.dp)).background(Color.White).padding(16.dp).fillMaxWidth(0.9f), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            Modifier
+                .clip(RoundedCornerShape(14.dp))
+                .background(Color.White)
+                .padding(16.dp)
+                .fillMaxWidth(0.95f)
+                .heightIn(max = 560.dp)
+                .verticalScroll(scroll),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Text(me.name, color = BcAccent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Text("${me.rank.badge} ${me.rank.titleAr}", color = Color(0xFF666666), fontSize = 12.sp)
-            Spacer(Modifier.height(14.dp))
-            Text("اختر صورتك", color = Color(0xFF444444), fontSize = 13.sp)
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
+
+            // Avatar picker
+            Text("اختر صورتك الرمزية", color = Color(0xFF444444), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(6.dp))
             androidx.compose.foundation.lazy.LazyRow {
                 items(avatarSeeds.size) { i ->
                     val url = "https://api.dicebear.com/7.x/bottts/png?seed=${avatarSeeds[i]}"
@@ -321,13 +347,70 @@ private fun ProfileDialog(me: ChatUser, onLogout: () -> Unit, onDismiss: () -> U
                     }
                 }
             }
-            Spacer(Modifier.height(14.dp))
-            Text(if (vip) "اختر لون اسمك" else "تغيير اللون للأعضاء المميزين", color = Color(0xFF444444), fontSize = 13.sp)
+            Spacer(Modifier.height(12.dp))
+
+            // Bio / Status
+            OutlinedTextField(
+                value = bio,
+                onValueChange = { if (it.length <= 80) bio = it },
+                label = { Text("الحالة / النبذة الشخصية", fontSize = 12.sp) },
+                placeholder = { Text("اكتب حالتك هنا...", fontSize = 12.sp) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
             Spacer(Modifier.height(8.dp))
+
+            // Age and Gender
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = age,
+                    onValueChange = { if (it.length <= 2 && (it.isEmpty() || it.all { c -> c.isDigit() })) age = it },
+                    label = { Text("العمر", fontSize = 12.sp) },
+                    placeholder = { Text("25", fontSize = 12.sp) },
+                    singleLine = true,
+                    modifier = Modifier.weight(0.4f)
+                )
+
+                Column(Modifier.weight(0.6f)) {
+                    Text("الجنس", fontSize = 11.sp, color = Color(0xFF666666))
+                    Spacer(Modifier.height(4.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("ذكر", "أنثى").forEach { g ->
+                            Box(
+                                Modifier
+                                    .weight(1f)
+                                    .height(42.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(if (gender == g) BcAccent else Color(0xFFEEEEEE))
+                                    .clickable { gender = g },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(g, color = if (gender == g) Color.White else Color(0xFF333333), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+
+            // City / Country
+            OutlinedTextField(
+                value = country,
+                onValueChange = { if (it.length <= 30) country = it },
+                label = { Text("المحافظة / المدينة", fontSize = 12.sp) },
+                placeholder = { Text("بغداد، البصرة، النجف...", fontSize = 12.sp) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(12.dp))
+
+            // VIP Color Picker (unlocked for VIP or demo testing)
+            Text(if (vip) "اختر لون اسمك (مميز)" else "لون الاسم للأعضاء المميزين", color = Color(0xFF444444), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(6.dp))
             Row {
                 colors.forEach { c ->
                     Box(
-                        Modifier.padding(4.dp).size(30.dp).clip(CircleShape)
+                        Modifier.padding(4.dp).size(28.dp).clip(CircleShape)
                             .background(Color(android.graphics.Color.parseColor(c)))
                             .border(if (picked == c) 3.dp else 0.dp, Color.Black, CircleShape)
                             .clickable(enabled = vip) { picked = c }
@@ -335,14 +418,26 @@ private fun ProfileDialog(me: ChatUser, onLogout: () -> Unit, onDismiss: () -> U
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Box(Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(6.dp)).background(BcAccent)
-                .clickable { onSave(if (vip) picked else null, avatar, "online") }, contentAlignment = Alignment.Center) {
-                Text("حفظ", color = Color.White, fontWeight = FontWeight.Bold)
+
+            // Save button
+            Box(
+                Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(6.dp)).background(BcAccent)
+                    .clickable {
+                        onSave(if (vip) picked else null, avatar, "online", bio, age.toIntOrNull(), gender, country)
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("حفظ التعديلات", color = Color.White, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(8.dp))
-            Box(Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(6.dp))
-                .border(1.dp, Color(0xFFD32F2F), RoundedCornerShape(6.dp))
-                .clickable { onLogout() }, contentAlignment = Alignment.Center) {
+
+            // Logout button
+            Box(
+                Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(6.dp))
+                    .border(1.dp, Color(0xFFD32F2F), RoundedCornerShape(6.dp))
+                    .clickable { onLogout() },
+                contentAlignment = Alignment.Center
+            ) {
                 Text("تسجيل الخروج", color = Color(0xFFD32F2F), fontWeight = FontWeight.Bold)
             }
         }
@@ -448,6 +543,17 @@ private fun ModerationDialog(
                 .heightIn(max = 520.dp)
         ) {
             Text("إدارة: ${target.name} (${target.rank.titleAr})", color = BcAccent, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            val info = buildList {
+                if (target.country.isNotBlank()) add("🇮🇶 ${target.country}")
+                if (target.age != null) add("العمر: ${target.age}")
+                if (target.gender.isNotBlank()) add(target.gender)
+            }.joinToString(" • ")
+            if (info.isNotBlank()) {
+                Text(info, color = Color(0xFF666666), fontSize = 11.5.sp)
+            }
+            if (target.bio.isNotBlank()) {
+                Text("“${target.bio}”", color = Color(0xFF888888), fontSize = 11.5.sp)
+            }
             Spacer(Modifier.height(8.dp))
 
             Text("الرتبة والترقيات:", fontSize = 12.sp, color = Color(0xFF666666), fontWeight = FontWeight.SemiBold)

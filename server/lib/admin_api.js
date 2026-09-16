@@ -321,7 +321,7 @@ function handleAdminCommand(socket, user, room, text, ctx) {
   };
 
   // Commands available to all users in the room
-  if (cmd === 'yt' || cmd === 'youtube' || cmd === 'يوتيوب') {
+  if (cmd === 'yt' || cmd === 'youtube' || cmd === 'يوتيوب' || cmd === 'play') {
     const target = parts.slice(1).join(' ').trim();
     if (!target) {
       reply('⚠️ اكتب رابط اليوتيوب أو معرّف الفيديو: /yt رابط_الفيديو');
@@ -331,16 +331,77 @@ function handleAdminCommand(socket, user, room, text, ctx) {
     const ytId = filter.youtubeId(target) || target;
     room.youtubeId = ytId;
     room.youtubeTitle = 'فيديو بواسطة ' + user.name;
+    room.youtubeStartedAt = now();
     store.save();
     io.to(room.id).emit('youtube_updated', {
       videoId: ytId,
       videoTitle: room.youtubeTitle,
+      startedAt: room.youtubeStartedAt,
+      offset: 0,
       status: 'play',
       by: user.name
     });
     io.to(room.id).emit('system_message', {
       roomId: room.id,
-      text: `🎬 قام ${user.name} بتشغيل فيديو يوتيوب جديد بالروم`,
+      text: `🎬 قام ${user.name} بتشغيل فيديو يوتيوب متزامن بالروم 🎵`,
+      at: now()
+    });
+    return true;
+  }
+
+  // Queue commands for VIP & Room members
+  if (cmd === 'queue' || cmd === 'q' || cmd === 'انتظار') {
+    const target = parts.slice(1).join(' ').trim();
+    if (!target) {
+      const q = room.youtubeQueue || [];
+      if (q.length === 0) {
+        reply('قائمة الانتظار فارغة حالياً. أضف فيديو عبر: /queue رابط_الفيديو');
+      } else {
+        const listStr = q.map((item, idx) => `${idx + 1}. ${item.title} (بواسطة ${item.by})`).join('\n');
+        reply(`📋 قائمة تشغيل الفيديوهات (${q.length}):\n${listStr}`);
+      }
+      return true;
+    }
+    const filter = require('./filter');
+    const ytId = filter.youtubeId(target) || target;
+    if (!room.youtubeQueue) room.youtubeQueue = [];
+    room.youtubeQueue.push({ videoId: ytId, title: 'فيديو من ' + user.name, by: user.name, at: now() });
+    store.save();
+    io.to(room.id).emit('system_message', {
+      roomId: room.id,
+      text: `📋 أضاف ${user.name} فيديو جديد لقائمة الانتظار (رقم ${room.youtubeQueue.length}) 🎵`,
+      at: now()
+    });
+    return true;
+  }
+
+  if (cmd === 'skip' || cmd === 'تخطي') {
+    const isVipOrStaff = user.rank === 'VIP_DIAMOND' || user.rank === 'MODERATOR' || user.rank === 'OWNER';
+    if (!isVipOrStaff) {
+      reply('⚠️ ميزة تخطي الفيديو مخصصة للأعضاء المميزين VIP والإدارة فقط 💎');
+      return true;
+    }
+    const q = room.youtubeQueue || [];
+    if (q.length === 0) {
+      reply('⚠️ لا يوجد فيديو تالي في قائمة الانتظار');
+      return true;
+    }
+    const nextItem = q.shift();
+    room.youtubeId = nextItem.videoId;
+    room.youtubeTitle = nextItem.title;
+    room.youtubeStartedAt = now();
+    store.save();
+    io.to(room.id).emit('youtube_updated', {
+      videoId: nextItem.videoId,
+      videoTitle: nextItem.title,
+      startedAt: room.youtubeStartedAt,
+      offset: 0,
+      status: 'play',
+      by: user.name
+    });
+    io.to(room.id).emit('system_message', {
+      roomId: room.id,
+      text: `⏭️ قام ${user.name} بتخطي الفيديو وتشغيل التالي: ${nextItem.title}`,
       at: now()
     });
     return true;

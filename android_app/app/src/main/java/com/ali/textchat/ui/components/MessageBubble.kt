@@ -55,18 +55,18 @@ fun MessageBubble(
     val context = LocalContext.current
     val loader = remember { svgCapableLoader(context) }
     val skin = skinFor(message.senderRank)
-    val avatarShape = RoundedCornerShape(12.dp)
+    val avatarShape = RoundedCornerShape(10.dp)
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 6.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
+            .padding(start = 6.dp, end = 10.dp, top = 2.dp, bottom = 2.dp),
         verticalAlignment = Alignment.Top
     ) {
-        // Large rounded-square avatar (54dp) matching the reference screenshot exactly
+        // Compact rounded-square avatar (42dp)
         Box(
             modifier = Modifier
-                .size(54.dp)
+                .size(42.dp)
                 .border(1.5.dp, skin.border.copy(alpha = 0.85f), avatarShape)
                 .padding(1.dp)
                 .clip(avatarShape)
@@ -74,7 +74,7 @@ fun MessageBubble(
                 .clickable { onUserMention(message.senderName) },
             contentAlignment = Alignment.Center
         ) {
-            Text(message.senderName.trim().take(1), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(message.senderName.trim().take(1), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
             if (message.senderAvatar.isNotBlank()) {
                 AsyncImage(
                     model = message.senderAvatar,
@@ -87,18 +87,17 @@ fun MessageBubble(
 
         Spacer(Modifier.width(8.dp))
 
-        // Compact message card hugging avatar height
+        // Dynamic compact message card hugging content
         Column(
             modifier = Modifier
                 .weight(1f, fill = false)
                 .clip(RoundedCornerShape(8.dp))
                 .clickable { onUserMention(message.senderName) }
                 .background(skin.fill)
-                .padding(horizontal = 10.dp, vertical = 6.dp)
+                .padding(horizontal = 9.dp, vertical = 5.dp)
         ) {
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = message.senderName,
@@ -109,7 +108,7 @@ fun MessageBubble(
                 )
                 Spacer(Modifier.width(4.dp))
                 Text(message.senderRank.badge, fontSize = 11.sp)   // .chat_rank icon
-                Spacer(Modifier.weight(1f))
+                Spacer(Modifier.width(8.dp))
                 Icon(
                     Icons.Default.Schedule,
                     contentDescription = null,
@@ -120,7 +119,7 @@ fun MessageBubble(
                 Text(
                     message.timestamp,
                     color = if (message.senderRank == UserRank.BOT) Color(0xFFB0BEC5) else skin.text.copy(alpha = 0.8f),
-                    fontSize = 11.sp
+                    fontSize = 10.5.sp
                 )
                 if (message.senderRank != UserRank.BOT) {
                     Spacer(Modifier.width(6.dp))
@@ -132,7 +131,7 @@ fun MessageBubble(
                     )
                 }
             }
-            Spacer(Modifier.height(3.dp))
+            Spacer(Modifier.height(2.dp))
             if (message.senderRank == UserRank.BOT) {
                 // Quiz bot lines are shown as colored pills (cyan / purple) like the site's quizbot.
                 val pill = if (message.text.contains("تلميح")) Color(0xFFA100E8) else Color(0xFF00B4D8)

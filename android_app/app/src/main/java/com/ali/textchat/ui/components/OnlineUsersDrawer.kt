@@ -130,8 +130,21 @@ private fun UserItem(user: ChatUser, onClick: (ChatUser) -> Unit, offline: Boole
         }
         Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f)) {
-            Text(user.name, color = Color(0xFF535353), fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(if (offline) "غير متصل" else "متصل", color = Color(0xFF999999), fontSize = 10.sp)
+            Text(
+                user.name,
+                color = user.customHexColor?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() } ?: Color(0xFF535353),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            val subtext = when {
+                offline -> "غير متصل"
+                user.bio.isNotBlank() -> user.bio
+                user.country.isNotBlank() -> user.country
+                else -> "متصل"
+            }
+            Text(subtext, color = Color(0xFF999999), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Text("🇮🇶", fontSize = 13.sp)                      // .list_flag
         Spacer(Modifier.width(4.dp))

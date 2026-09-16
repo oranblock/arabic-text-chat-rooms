@@ -37,7 +37,8 @@ const lastSent = new Map();     // userId -> { at, text }
 function publicUser(u) {
   return {
     id: u.id, name: u.name, avatarUrl: u.avatarUrl || '', rank: u.rank,
-    customHexColor: u.customHexColor || null, country: u.country || 'IQ',
+    customHexColor: u.customHexColor || null, country: u.country || 'العراق',
+    bio: u.bio || '', age: u.age || null, gender: u.gender || '',
     isMuted: !!u.isMuted, isGhost: !!u.isGhost, status: u.status || 'online',
     online: online.has(u.id)
   };
@@ -108,6 +109,7 @@ app.get('/admin', (_req, res) => res.sendFile(path.join(__dirname, 'public/admin
 
 app.get('/player/:videoId', (req, res) => {
   const videoId = (req.params.videoId || '').replace(/[^A-Za-z0-9_-]/g, '');
+  const start = parseInt(req.query.start || req.query.t || '0', 10) || 0;
   if (!videoId) return res.status(400).send('معرف فيديو غير صالح');
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(`<!DOCTYPE html>
@@ -128,7 +130,7 @@ app.get('/player/:videoId', (req, res) => {
   <div id="player-container">
     <iframe
       id="yt"
-      src="https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&controls=1&enablejsapi=1&rel=0"
+      src="https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&controls=1&enablejsapi=1&rel=0&start=${start}"
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
       allowfullscreen>
     </iframe>
@@ -233,7 +235,9 @@ io.on('connection', (socket) => {
           lockPublic: !!room.lockPublic,
           lockPrivate: !!room.lockPrivate,
           youtubeId: room.youtubeId || '',
-          youtubeTitle: room.youtubeTitle || ''
+          youtubeTitle: room.youtubeTitle || '',
+          youtubeStartedAt: room.youtubeStartedAt || 0,
+          youtubeOffset: room.youtubeStartedAt ? Math.max(0, Math.floor((now() - room.youtubeStartedAt) / 1000)) : 0
         },
         me: publicUser(user),
         messages: history,
@@ -251,9 +255,16 @@ io.on('connection', (socket) => {
     const user = currentUser();
     if (!user) return;
     const p = online.get(user.id);
-    if (!p) return;
+    if (!p || !p.roomId) return;
     const room = store.state.rooms[p.roomId];
     if (!room) return;
+
+    if (user.isMuted) {
+      return socket.emit('system_message', { roomId: room.id, text: 'أنت مكتوم ولا يمكنك الإرسال', at: now() });
+    }
+    if (room.lockPublic && !isStaff(user)) {
+      return socket.emit('system_message', { roomId: room.id, text: 'الشات مقفول حالياً من الإدارة', at: now() });
+    }
 
     // In-chat slash admin commands (/mute, /unmute, /kick, /ban, /promote, /quiz, /broadcast, etc.)
     if (typeof text === 'string' && (text.trim().startsWith('/') || text.trim().startsWith('!'))) {
@@ -296,8 +307,16 @@ io.on('connection', (socket) => {
     if (yt) {
       room.youtubeId = yt;
       room.youtubeTitle = 'فيديو من ' + user.name;
+      room.youtubeStartedAt = now();
       store.save();
-      io.to(room.id).emit('youtube_updated', { videoId: yt, videoTitle: room.youtubeTitle, status: 'play', by: user.name });
+      io.to(room.id).emit('youtube_updated', {
+        videoId: yt,
+        videoTitle: room.youtubeTitle,
+        startedAt: room.youtubeStartedAt,
+        offset: 0,
+        status: 'play',
+        by: user.name
+      });
     }
   });
 
@@ -390,11 +409,15 @@ io.on('connection', (socket) => {
     if (typeof cb === 'function') cb({ ok: true });
   });
 
-  socket.on('update_profile', ({ customHexColor, avatarUrl, status } = {}, cb) => {
+  socket.on('update_profile', ({ customHexColor, avatarUrl, status, bio, age, gender, country } = {}, cb) => {
     const user = currentUser();
     if (!user) return fail(cb, 'سجل الدخول');
     if (typeof avatarUrl === 'string') user.avatarUrl = avatarUrl.slice(0, 300);
     if (typeof status === 'string' && ['online', 'away', 'busy'].includes(status)) user.status = status;
+    if (typeof bio === 'string') user.bio = bio.slice(0, 160);
+    if (age !== undefined) user.age = Number(age) || null;
+    if (typeof gender === 'string') user.gender = gender.slice(0, 20);
+    if (typeof country === 'string') user.country = country.slice(0, 50);
     if (typeof customHexColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(customHexColor)) {
       if (rank(user) >= RANKS.indexOf('VIP_DIAMOND')) user.customHexColor = customHexColor;
       else return fail(cb, 'تغيير لون الاسم متاح للأعضاء المميزين فقط');
