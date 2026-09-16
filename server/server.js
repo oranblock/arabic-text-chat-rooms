@@ -14,6 +14,7 @@ const store = require('./lib/store');
 const auth = require('./lib/auth');
 const filter = require('./lib/filter');
 const push = require('./lib/push');
+const { QuizBot } = require('./lib/bot');
 
 const app = express();
 app.use(cors());
@@ -47,6 +48,9 @@ function roomUsers(roomId) {
       const u = store.state.users[uid];
       if (u) out.push(publicUser(u));
     }
+  }
+  if (roomId === 'games' || roomId === 'iraq') {
+    out.push(quizBot.user);
   }
   return out;
 }
@@ -90,6 +94,9 @@ function makeMessage(u, roomId, text, extra = {}) {
   };
 }
 
+const quizBot = new QuizBot(io, store, makeMessage);
+quizBot.start();
+
 io.use((socket, next) => {
   const deviceHash = socket.handshake.query.deviceHash || '';
   socket.deviceHash = deviceHash;
@@ -119,7 +126,7 @@ io.on('connection', (socket) => {
       avatarUrl: avatarUrl || '',
       rank: isFirst ? 'OWNER' : 'REGULAR',
       customHexColor: null, country: 'IQ',
-      isMuted: !isFirst,
+      isMuted: process.env.AUTO_MUTE === 'true' ? !isFirst : false,
       isGhost: false, status: 'online',
       oldNames: [], createdAt: now(),
       devices: socket.deviceHash ? [socket.deviceHash] : []
@@ -235,6 +242,7 @@ io.on('connection', (socket) => {
     }
     store.pushMessage(room.id, msg);
     io.to(room.id).emit('new_message', msg);
+    quizBot.checkAnswer(room.id, user, clean.text);
 
     const yt = filter.youtubeId(clean.text);
     if (yt) {
@@ -352,7 +360,7 @@ io.on('connection', (socket) => {
   function moderate(action, payload, cb) {
     const me = currentUser();
     if (!isStaff(me)) return fail(cb, 'صلاحية مشرف مطلوبة');
-    const needTarget = !['lock_room', 'broadcast'].includes(action);
+    const needTarget = !['lock_room', 'broadcast', 'trigger_quiz', 'unban_device'].includes(action);
     const target = store.state.users[payload.targetUserId];
     if (needTarget && !target) return fail(cb, 'العضو غير موجود');
     if (target && rank(target) >= rank(me) && target.id !== me.id) return fail(cb, 'لا يمكن التحكم بعضو رتبته أعلى');
@@ -370,8 +378,18 @@ io.on('connection', (socket) => {
         for (const d of (target.devices || [])) store.state.bannedDevices[d] = { by: me.name, at: now() };
         if (p) { io.to(p.socketId).emit('force_disconnect', { reason: 'تم حظر جهازك نهائياً' }); io.sockets.sockets.get(p.socketId)?.disconnect(true); }
         break;
+      case 'unban_device':
+        if (payload.deviceHash && store.state.bannedDevices[payload.deviceHash]) {
+          delete store.state.bannedDevices[payload.deviceHash];
+        }
+        break;
+      case 'trigger_quiz': {
+        const room = store.state.rooms[(online.get(me.id) || {}).roomId] || store.state.rooms.iraq;
+        quizBot.askQuestion(room.id);
+        break;
+      }
       case 'promote':
-        if (me.rank !== 'OWNER') return fail(cb, 'الترقية للمالك فقط');
+        if (me.rank !== 'OWNER' && (me.rank !== 'MODERATOR' || payload.rank !== 'VIP_DIAMOND')) return fail(cb, 'الترقية للمشرفين أو المالك فقط');
         if (RANKS.includes(payload.rank)) target.rank = payload.rank;
         break;
       case 'lock_room': {
@@ -403,6 +421,20 @@ io.on('connection', (socket) => {
   }
 
   socket.on('mod_action', ({ action, ...payload } = {}, cb) => moderate(action, payload, cb));
+
+  socket.on('list_banned', (_p, cb) => {
+    const me = currentUser();
+    if (!isStaff(me)) return fail(cb, 'صلاحية مشرف مطلوبة');
+    const banned = Object.entries(store.state.bannedDevices).map(([hash, info]) => ({ hash, ...info }));
+    if (typeof cb === 'function') cb({ ok: true, banned });
+  });
+
+  socket.on('list_staff', (_p, cb) => {
+    const me = currentUser();
+    if (!isStaff(me)) return fail(cb, 'صلاحية مشرف مطلوبة');
+    const staff = Object.values(store.state.users).filter(u => isStaff(u)).map(publicUser);
+    if (typeof cb === 'function') cb({ ok: true, staff });
+  });
 
   socket.on('device_accounts', ({ targetUserId } = {}, cb) => {
     const me = currentUser();

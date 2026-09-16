@@ -204,6 +204,41 @@ class ChatSocket(
         })
     }
 
+    fun triggerQuiz() = moderate("trigger_quiz", null)
+
+    fun lockRoom(what: String, value: Boolean) =
+        moderate("lock_room", null) { put("what", what); put("value", value) }
+
+    fun broadcast(text: String) =
+        moderate("broadcast", null) { put("text", text) }
+
+    fun promote(targetUserId: String, rank: String) =
+        moderate("promote", targetUserId) { put("rank", rank) }
+
+    fun unbanDevice(deviceHash: String) =
+        moderate("unban_device", null) { put("deviceHash", deviceHash) }
+
+    fun listStaff(onResult: (List<ChatUser>) -> Unit) {
+        socket?.emit("list_staff", JSONObject(), Ack { res ->
+            val staff = (res.firstOrNull() as? JSONObject)?.optJSONArray("staff")?.let { parseUsers(it) } ?: emptyList()
+            onResult(staff)
+        })
+    }
+
+    fun listBanned(onResult: (List<Pair<String, String>>) -> Unit) {
+        socket?.emit("list_banned", JSONObject(), Ack { res ->
+            val list = mutableListOf<Pair<String, String>>()
+            val arr = (res.firstOrNull() as? JSONObject)?.optJSONArray("banned")
+            if (arr != null) {
+                for (i in 0 until arr.length()) {
+                    val o = arr.getJSONObject(i)
+                    list.add(Pair(o.optString("hash"), o.optString("by")))
+                }
+            }
+            onResult(list)
+        })
+    }
+
     fun loadThreads() {
         socket?.emit("list_threads", JSONObject(), Ack { res ->
             (res.firstOrNull() as? JSONObject)?.optJSONArray("threads")?.let { _threads.value = parseThreads(it) }

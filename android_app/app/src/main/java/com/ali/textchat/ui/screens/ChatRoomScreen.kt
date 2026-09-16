@@ -68,6 +68,7 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
     var showNotifs by remember { mutableStateOf(false) }
     var showInbox by remember { mutableStateOf(false) }
     var showRequests by remember { mutableStateOf(false) }
+    var showAdminPanel by remember { mutableStateOf(false) }
 
     LaunchedEffect(ytId) { if (!ytId.isNullOrBlank()) ytVisible = true }
     val listState = rememberLazyListState()
@@ -111,6 +112,9 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
                     }
                 }
                 Spacer(Modifier.weight(1f))
+                if (isStaff(me?.rank)) {
+                    HeadOption(Icons.Default.Security, 0) { showAdminPanel = true }
+                }
                 HeadOption(Icons.Default.Notifications, notifications.size) { showNotifs = true }
                 HeadOption(Icons.Default.Email, 0) { socket.loadThreads(); showInbox = true }
                 HeadOption(Icons.Default.PersonAdd, requests.size) { socket.loadRequests(); showRequests = true }
@@ -202,7 +206,23 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
     }, onDismiss = { showInbox = false })
     if (showRequests) RequestsDialog(requests,
         onRespond = { id, ok -> socket.respondRequest(id, ok) }, onDismiss = { showRequests = false })
-    modTarget?.let { t -> ModerationDialog(t, onDismiss = { modTarget = null }) { action -> socket.moderate(action, t.id); modTarget = null } }
+    if (showAdminPanel && isStaff(me?.rank)) {
+        AdminPanelDialog(
+            socket = socket,
+            me = me,
+            currentRoom = room,
+            onDismiss = { showAdminPanel = false }
+        )
+    }
+    modTarget?.let { t ->
+        ModerationDialog(
+            target = t,
+            isOwner = me?.rank == UserRank.OWNER,
+            onDismiss = { modTarget = null },
+            onAction = { action -> socket.moderate(action, t.id); modTarget = null },
+            onPromote = { rankStr -> socket.promote(t.id, rankStr); modTarget = null }
+        )
+    }
     privTarget?.let { t -> PrivateChatDialog(socket, t, onDismiss = { privTarget = null }) }
 }
 
@@ -398,19 +418,265 @@ private fun RequestsDialog(requests: List<PmThread>, onRespond: (String, Boolean
 }
 
 @Composable
-private fun ModerationDialog(target: ChatUser, onDismiss: () -> Unit, onAction: (String) -> Unit) {
+private fun ModerationDialog(
+    target: ChatUser,
+    isOwner: Boolean,
+    onDismiss: () -> Unit,
+    onAction: (String) -> Unit,
+    onPromote: (String) -> Unit
+) {
     val actions = listOf(
-        "mute" to "🔇 كتم", "unmute" to "🔊 فك الكتم / تفعيل", "ghost" to "👻 وضع الشبح",
-        "unghost" to "👁️ إلغاء الشبح", "kick" to "🚪 طرد", "ban_device" to "⛔ حظر الجهاز نهائياً"
+        "unmute" to "🔊 فك الكتم / تفعيل العضو",
+        "mute" to "🔇 كتم العضو",
+        "ghost" to "👻 وضع الشبح (كتم صامت)",
+        "unghost" to "👁️ إلغاء وضع الشبح",
+        "kick" to "🚪 طرد من الغرفة",
+        "ban_device" to "⛔ حظر الجهاز نهائياً"
     )
     Dialog(onDismiss) {
-        Column(Modifier.clip(RoundedCornerShape(14.dp)).background(Color.White).padding(14.dp).fillMaxWidth(0.85f)) {
-            Text("إدارة: ${target.name}", color = BcAccent, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Column(
+            Modifier
+                .clip(RoundedCornerShape(14.dp))
+                .background(Color.White)
+                .padding(16.dp)
+                .fillMaxWidth(0.9f)
+                .heightIn(max = 520.dp)
+        ) {
+            Text("إدارة: ${target.name} (${target.rank.titleAr})", color = BcAccent, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+
+            Text("الرتبة والترقيات:", fontSize = 12.sp, color = Color(0xFF666666), fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (isOwner) {
+                    Box(
+                        Modifier.weight(1f).clip(RoundedCornerShape(6.dp)).background(Color(0xFFEDE7F6)).clickable { onPromote("MODERATOR") }.padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) { Text("🛡️ مشرف", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF512DA8)) }
+                }
+                Box(
+                    Modifier.weight(1f).clip(RoundedCornerShape(6.dp)).background(Color(0xFFE1F5FE)).clickable { onPromote("VIP_DIAMOND") }.padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) { Text("💎 مميز", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0288D1)) }
+                Box(
+                    Modifier.weight(1f).clip(RoundedCornerShape(6.dp)).background(Color(0xFFF5F5F5)).clickable { onPromote("REGULAR") }.padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) { Text("👤 عادي", fontSize = 12.sp, color = Color(0xFF616161)) }
+            }
+
             Spacer(Modifier.height(10.dp))
-            actions.forEach { (a, label) ->
-                Text(label, color = Color(0xFF333333), fontSize = 15.sp,
-                    modifier = Modifier.fillMaxWidth().clickable { onAction(a) }.padding(vertical = 10.dp))
-                HorizontalDivider(color = BcInputBorder)
+            HorizontalDivider(color = BcInputBorder)
+
+            LazyColumn(Modifier.fillMaxWidth()) {
+                items(actions) { (a, label) ->
+                    Text(
+                        label,
+                        color = if (a == "ban_device") Color(0xFFD32F2F) else if (a == "unmute") Color(0xFF2E7D32) else Color(0xFF333333),
+                        fontSize = 14.sp,
+                        fontWeight = if (a == "unmute" || a == "ban_device") FontWeight.Bold else FontWeight.Normal,
+                        modifier = Modifier.fillMaxWidth().clickable { onAction(a) }.padding(vertical = 10.dp)
+                    )
+                    HorizontalDivider(color = BcInputBorder)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdminPanelDialog(
+    socket: ChatSocket,
+    me: ChatUser?,
+    currentRoom: ChatRoom?,
+    onDismiss: () -> Unit
+) {
+    var selectedTab by remember { mutableStateOf(0) }
+    var broadcastText by remember { mutableStateOf("") }
+    var staffList by remember { mutableStateOf<List<ChatUser>>(emptyList()) }
+    var bannedList by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    var lockPub by remember { mutableStateOf(currentRoom?.isLocked == true) }
+    var lockPriv by remember { mutableStateOf(false) }
+
+    LaunchedEffect(selectedTab) {
+        if (selectedTab == 1) socket.listStaff { staffList = it }
+        if (selectedTab == 3) socket.listBanned { bannedList = it }
+    }
+
+    Dialog(onDismiss) {
+        Column(
+            Modifier
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color.White)
+                .fillMaxWidth(0.95f)
+                .heightIn(max = 540.dp)
+        ) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .background(Brush.horizontalGradient(listOf(BcHeaderStart, BcHeaderEnd)))
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Security, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("لوحة إدارة الروم والمشرفين", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Spacer(Modifier.weight(1f))
+                Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(20.dp).clickable { onDismiss() })
+            }
+
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFF0F4FF))
+                    .padding(vertical = 6.dp, horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceAround
+            ) {
+                listOf("🔒 الروم", "🛡️ المشرفين", "🤖 البوت", "⛔ الحظر").forEachIndexed { idx, title ->
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (selectedTab == idx) BcAccent else Color.Transparent)
+                            .clickable { selectedTab = idx }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            title,
+                            color = if (selectedTab == idx) Color.White else Color(0xFF333333),
+                            fontSize = 12.sp,
+                            fontWeight = if (selectedTab == idx) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
+            }
+
+            Column(Modifier.weight(1f).fillMaxWidth().padding(14.dp)) {
+                when (selectedTab) {
+                    0 -> {
+                        Text("التحكم بالغرفة: ${currentRoom?.title ?: "ديوانية العراق"}", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = BcAccent)
+                        Spacer(Modifier.height(10.dp))
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("قفل الشات العام", fontSize = 13.sp, color = Color(0xFF333333), modifier = Modifier.weight(1f))
+                            Switch(checked = lockPub, onCheckedChange = {
+                                lockPub = it
+                                socket.lockRoom("public", it)
+                            })
+                        }
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("قفل المحادثات الخاصة", fontSize = 13.sp, color = Color(0xFF333333), modifier = Modifier.weight(1f))
+                            Switch(checked = lockPriv, onCheckedChange = {
+                                lockPriv = it
+                                socket.lockRoom("private", it)
+                            })
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        Text("📢 إرسال تعميم / برودكاست لجميع الغرف", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF333333))
+                        Spacer(Modifier.height(6.dp))
+                        Box(
+                            Modifier.fillMaxWidth().height(42.dp).background(BcInputFill, RoundedCornerShape(6.dp))
+                                .border(1.dp, BcInputBorder, RoundedCornerShape(6.dp)).padding(horizontal = 10.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            if (broadcastText.isEmpty()) Text("اكتب نص الإشعار العام هنا...", color = Color(0xFF9E9E9E), fontSize = 12.sp)
+                            BasicTextField(broadcastText, { broadcastText = it }, singleLine = true, textStyle = TextStyle(color = Color(0xFF181818), fontSize = 13.sp), modifier = Modifier.fillMaxWidth())
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Box(
+                            Modifier.fillMaxWidth().height(38.dp).clip(RoundedCornerShape(6.dp)).background(BcAccent)
+                                .clickable {
+                                    if (broadcastText.isNotBlank()) {
+                                        socket.broadcast(broadcastText.trim())
+                                        broadcastText = ""
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("إرسال البرودكاست 📢", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                    }
+                    1 -> {
+                        Text("طاقم الإدارة والمشرفين", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = BcAccent)
+                        Spacer(Modifier.height(4.dp))
+                        Text("المدير المؤسس: علي (demo123) 👑", fontSize = 11.sp, color = Color(0xFF666666))
+                        Spacer(Modifier.height(8.dp))
+                        LazyColumn(Modifier.fillMaxSize()) {
+                            items(staffList) { s ->
+                                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(s.rank.badge, fontSize = 16.sp)
+                                    Spacer(Modifier.width(8.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(s.name, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF222222))
+                                        Text(s.rank.titleAr, fontSize = 11.sp, color = if (s.rank == UserRank.OWNER) Color(0xFFD4AF37) else Color(0xFF757575))
+                                    }
+                                    if (me?.rank == UserRank.OWNER && s.id != me.id) {
+                                        Text(
+                                            "تنزيل 👤",
+                                            color = Color(0xFFD32F2F),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Color(0xFFFFEBEE)).clickable {
+                                                socket.promote(s.id, "REGULAR")
+                                                socket.listStaff { staffList = it }
+                                            }.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+                                HorizontalDivider(color = BcInputBorder)
+                            }
+                        }
+                    }
+                    2 -> {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                            Text("🤖 بوت المسابقات والترفيه", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = BcAccent)
+                            Spacer(Modifier.height(6.dp))
+                            Text("ست وداد 🤖", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF00838F))
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "بوت ألعاب وألغاز عراقية تفاعلي يطرح أسئلة ثقافية في الشات تلقائياً، ويكافئ أسرع إجابة صحيحة بـ 10 نقاط فوراً!",
+                                fontSize = 12.sp,
+                                color = Color(0xFF555555),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Box(
+                                Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF00838F))
+                                    .clickable {
+                                        socket.triggerQuiz()
+                                        onDismiss()
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("🎯 طرح سؤال مسابقة الآن بالشات", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            }
+                        }
+                    }
+                    3 -> {
+                        Text("الأجهزة المحظورة (عتاد الجهاز)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = BcAccent)
+                        Spacer(Modifier.height(8.dp))
+                        if (bannedList.isEmpty()) {
+                            Text("لا توجد أجهزة محظورة حالياً 👍", fontSize = 12.sp, color = Color(0xFF777777))
+                        } else {
+                            LazyColumn(Modifier.fillMaxSize()) {
+                                items(bannedList) { (hash, by) ->
+                                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(hash.take(16) + "...", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = Color(0xFF333333))
+                                            Text("بواسطة: $by", fontSize = 10.sp, color = Color(0xFF888888))
+                                        }
+                                        Box(
+                                            Modifier.clip(RoundedCornerShape(4.dp)).background(Color(0xFFE8F5E9)).clickable {
+                                                socket.unbanDevice(hash)
+                                                socket.listBanned { bannedList = it }
+                                            }.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Text("فك الحظر", color = Color(0xFF2E7D32), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                    HorizontalDivider(color = BcInputBorder)
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

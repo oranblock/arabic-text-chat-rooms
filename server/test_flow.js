@@ -108,6 +108,17 @@ const check = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name); 
   const alt = await rpc(owner, 'device_accounts', { targetUserId: rSpam.user.id });
   check('device_accounts lists alts', alt.ok && alt.accounts.length >= 1);
 
+  const staffRes = await rpc(owner, 'list_staff', {});
+  check('list_staff returns staff members', staffRes.ok && staffRes.staff.length >= 1);
+
+  const unbanRes = await rpc(owner, 'mod_action', { action: 'unban_device', deviceHash: 'dev-spam' });
+  check('unban_device succeeds', unbanRes.ok);
+
+  const quizProm = new Promise(resolve => member.once('new_message', m => resolve(m)));
+  await rpc(owner, 'mod_action', { action: 'trigger_quiz' });
+  const qMsg = await Promise.race([quizProm, wait(1500).then(() => null)]);
+  check('quiz bot asks question', qMsg && qMsg.senderName.includes('ست وداد'));
+
   owner.emit('send_message', { text: 'رسالة تبقى بالسجل' });
   await wait(300);
   const rejoin = await rpc(owner, 'join_room', { token: rOwner.token, roomId: 'iraq' });
