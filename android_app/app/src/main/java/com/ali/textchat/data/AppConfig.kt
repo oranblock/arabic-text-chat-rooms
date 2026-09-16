@@ -8,7 +8,7 @@ import android.os.Build
  * or localhost:3001 when running in an Android emulator with adb reverse (CI).
  */
 object AppConfig {
-    const val DEFAULT_SERVER_URL = "https://habitat-liver-leg-travesti.trycloudflare.com"
+    const val DEFAULT_SERVER_URL = "http://192.236.249.134:3000"
     const val EMULATOR_SERVER_URL = "http://localhost:3001"
 
     fun defaultUrl(): String {
