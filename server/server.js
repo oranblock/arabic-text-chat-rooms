@@ -572,8 +572,7 @@ io.on('connection', (socket) => {
     if (typeof gender === 'string') user.gender = gender.slice(0, 20);
     if (typeof country === 'string') user.country = country.slice(0, 50);
     if (typeof customHexColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(customHexColor)) {
-      if (rank(user) >= RANKS.indexOf('VIP_DIAMOND')) user.customHexColor = customHexColor;
-      else return fail(cb, 'تغيير لون الاسم متاح للأعضاء المميزين فقط');
+      user.customHexColor = customHexColor;  // everyone may pick a color
     }
     store.flush();
     const p = online.get(user.id);

@@ -646,7 +646,7 @@ private fun ProfileDialog(
     var age by remember { mutableStateOf(me.age?.toString() ?: "") }
     var gender by remember { mutableStateOf(if (me.gender.isNotBlank()) me.gender else "ذكر") }
     var country by remember { mutableStateOf(if (me.country.isNotBlank()) me.country else "بغداد") }
-    val vip = me.rank == UserRank.VIP_DIAMOND || me.rank == UserRank.MODERATOR || me.rank == UserRank.OWNER
+    val vip = true  // everyone may pick their bubble color (members not forced to one)
     val loader = com.ali.textchat.ui.util.svgCapableLoader(androidx.compose.ui.platform.LocalContext.current)
     val scroll = rememberScrollState()
 
