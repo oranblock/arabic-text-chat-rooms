@@ -35,11 +35,11 @@ import androidx.compose.foundation.layout.FlowRow
 private data class Skin(val fill: Brush, val text: Color, val border: Color)
 
 private fun skinFor(rank: UserRank): Skin = when (rank) {
-    UserRank.OWNER -> Skin(Brush.horizontalGradient(listOf(BcGoldC, BcGoldB, BcGoldA)), Color(0xFF3A3A3A), BcGoldA)
+    UserRank.OWNER -> Skin(Brush.horizontalGradient(listOf(BcGoldC, BcGoldB, BcGoldA)), Color(0xFF222222), BcGoldA)
     UserRank.MODERATOR -> Skin(Brush.horizontalGradient(listOf(BcVioletB, BcVioletA)), Color(0xFFFFE7E7), BcVioletA)
     UserRank.VIP_DIAMOND -> Skin(Brush.horizontalGradient(listOf(BcSkinPurple, BcSkinPurple)), Color.White, BcSkinPurple)
-    UserRank.REGULAR -> Skin(Brush.horizontalGradient(listOf(BcSkinDark, BcSkinDark)), Color.White, Color(0xFF333333))
-    UserRank.BOT -> Skin(Brush.horizontalGradient(listOf(BcMyText, BcMyText)), BcText, Color(0xFFDDDDDD))
+    UserRank.REGULAR -> Skin(Brush.horizontalGradient(listOf(Color(0xFF4A4A4A), Color(0xFF4A4A4A))), Color.White, Color(0xFF4A4A4A))
+    UserRank.BOT -> Skin(Brush.horizontalGradient(listOf(Color(0xFF233548), Color(0xFF233548))), Color.White, Color(0xFF00E5FF))
 }
 
 /**
@@ -55,26 +55,26 @@ fun MessageBubble(
     val context = LocalContext.current
     val loader = remember { svgCapableLoader(context) }
     val skin = skinFor(message.senderRank)
-    val avatarShape = RoundedCornerShape(18)
+    val avatarShape = RoundedCornerShape(12.dp)
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 6.dp, end = 10.dp, top = 5.dp, bottom = 5.dp),
+            .padding(start = 6.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.Top
     ) {
-        // Avatar with the skin-colored 2px border (".chatbox-*-text-border")
+        // Large rounded-square avatar (54dp) matching the reference screenshot exactly
         Box(
             modifier = Modifier
-                .size(46.dp)
-                .border(2.dp, skin.border, avatarShape)
-                .padding(2.dp)
+                .size(54.dp)
+                .border(1.5.dp, skin.border.copy(alpha = 0.85f), avatarShape)
+                .padding(1.dp)
                 .clip(avatarShape)
                 .background(Color(colorForName(message.senderName)))
                 .clickable { onUserMention(message.senderName) },
             contentAlignment = Alignment.Center
         ) {
-            Text(message.senderName.trim().take(1), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text(message.senderName.trim().take(1), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
             if (message.senderAvatar.isNotBlank()) {
                 AsyncImage(
                     model = message.senderAvatar,
@@ -87,15 +87,19 @@ fun MessageBubble(
 
         Spacer(Modifier.width(8.dp))
 
+        // Compact message card hugging avatar height
         Column(
             modifier = Modifier
                 .weight(1f, fill = false)
-                .clip(RoundedCornerShape(6.dp))
+                .clip(RoundedCornerShape(8.dp))
                 .clickable { onUserMention(message.senderName) }
                 .background(skin.fill)
-                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .padding(horizontal = 10.dp, vertical = 6.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text(
                     text = message.senderName,
                     color = skin.text,
@@ -105,29 +109,42 @@ fun MessageBubble(
                 )
                 Spacer(Modifier.width(4.dp))
                 Text(message.senderRank.badge, fontSize = 11.sp)   // .chat_rank icon
-                Spacer(Modifier.width(24.dp))
-                Spacer(Modifier.weight(1f, fill = false))
-                Icon(Icons.Default.Schedule, contentDescription = null, tint = if (message.senderRank == UserRank.BOT) BcTime else skin.text.copy(alpha = 0.75f), modifier = Modifier.size(11.dp))
+                Spacer(Modifier.weight(1f))
+                Icon(
+                    Icons.Default.Schedule,
+                    contentDescription = null,
+                    tint = if (message.senderRank == UserRank.BOT) Color(0xFFB0BEC5) else skin.text.copy(alpha = 0.7f),
+                    modifier = Modifier.size(11.dp)
+                )
                 Spacer(Modifier.width(3.dp))
-                Text(message.timestamp, color = if (message.senderRank == UserRank.BOT) BcTime else skin.text.copy(alpha = 0.85f), fontSize = 11.sp)
+                Text(
+                    message.timestamp,
+                    color = if (message.senderRank == UserRank.BOT) Color(0xFFB0BEC5) else skin.text.copy(alpha = 0.8f),
+                    fontSize = 11.sp
+                )
                 if (message.senderRank != UserRank.BOT) {
                     Spacer(Modifier.width(6.dp))
-                    Icon(Icons.Default.Block, contentDescription = "حظر", tint = skin.text.copy(alpha = 0.6f), modifier = Modifier.size(11.dp))
+                    Icon(
+                        Icons.Default.Block,
+                        contentDescription = "حظر",
+                        tint = skin.text.copy(alpha = 0.6f),
+                        modifier = Modifier.size(11.dp)
+                    )
                 }
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(3.dp))
             if (message.senderRank == UserRank.BOT) {
                 // Quiz bot lines are shown as colored pills (cyan / purple) like the site's quizbot.
                 val pill = if (message.text.contains("تلميح")) Color(0xFFA100E8) else Color(0xFF00B4D8)
                 Text(
                     text = message.text,
                     color = Color.White,
-                    fontSize = 14.sp,
+                    fontSize = 13.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(2.dp))
+                        .clip(RoundedCornerShape(4.dp))
                         .background(pill)
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
                 )
             } else {
                 // Ghost/shadowban is silent: the target sees their own message as normal,

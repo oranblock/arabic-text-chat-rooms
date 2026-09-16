@@ -179,8 +179,8 @@ def build_pdf(filename="FEATURES_SPECIFICATION.pdf"):
          Paragraph(ar("النقر السريع للمنشن (Quick-Mention)"), cell_bold)],
 
         [Paragraph(ar("مكتمل وجاهز"), cell_bold),
-         Paragraph(ar("شخصية ذكية تطرح 12 لغزاً عراقياً وتراقب الشات لحظياً وتعلن الفائز وتمنحه 10 نقاط تلقائياً."), cell_style),
-         Paragraph(ar("بوت المسابقات ست وداد 🤖"), cell_bold)],
+         Paragraph(ar("شخصية ذكية تطرح 12 لغزاً عراقياً وترتيب حروف وتراقب الشات لحظياً وتعلن الفائز وتمنحه 10 نقاط تلقائياً."), cell_style),
+         Paragraph(ar("مسابقات الكلمات المبعثرة 🎮"), cell_bold)],
 
         [Paragraph(ar("مكتمل وجاهز"), cell_bold),
          Paragraph(ar("منع الرسائل المتكررة، حظر إرسال رسالتين بأقل من ثانيتين، وكتم تلقائي للإغراق السريع (<800ms)."), cell_style),
@@ -251,7 +251,7 @@ def build_pdf(filename="FEATURES_SPECIFICATION.pdf"):
         [Paragraph(ar("طرد العضو وفصل اتصاله بالغرفة"), cell_style), Paragraph(ar("/kick <الاسم>"), cell_style), Paragraph(ar("/kick أو /طرد"), cell_bold)],
         [Paragraph(ar("حظر عتاد الجهاز الفيزيائي نهائياً"), cell_style), Paragraph(ar("/ban <الاسم>"), cell_style), Paragraph(ar("/ban أو /حظر"), cell_bold)],
         [Paragraph(ar("ترقية الرتبة (MODERATOR / VIP_DIAMOND / REGULAR)"), cell_style), Paragraph(ar("/promote <الاسم> <الرتبة>"), cell_style), Paragraph(ar("/promote أو /ترقية"), cell_bold)],
-        [Paragraph(ar("طرح سؤال مسابقة فوراً بواسطة ست وداد"), cell_style), Paragraph(ar("/quiz"), cell_style), Paragraph(ar("/quiz أو /مسابقة"), cell_bold)],
+        [Paragraph(ar("طرح سؤال مسابقة فوراً بواسطة بوت الكلمات المبعثرة"), cell_style), Paragraph(ar("/quiz"), cell_style), Paragraph(ar("/quiz أو /مسابقة"), cell_bold)],
         [Paragraph(ar("إرسال إشعار برودكاست لجميع الغرف"), cell_style), Paragraph(ar("/broadcast <النص>"), cell_style), Paragraph(ar("/broadcast أو /اعلان"), cell_bold)],
         [Paragraph(ar("قفل أو فتح الشات العام بالروم"), cell_style), Paragraph(ar("/lock public on أو /lock public off"), cell_style), Paragraph(ar("/lock أو /قفل"), cell_bold)],
         [Paragraph(ar("تغيير إعلان الروم الشريطي فوراً"), cell_style), Paragraph(ar("/topic <النص>"), cell_style), Paragraph(ar("/topic أو /اعلان_الروم"), cell_bold)]

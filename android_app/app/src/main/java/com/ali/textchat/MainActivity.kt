@@ -40,7 +40,8 @@ class MainActivity : ComponentActivity() {
                     Surface(modifier = Modifier.fillMaxSize()) {
                         val context = this@MainActivity
                         val deviceHash = remember { DeviceId.hash(context) }
-                        val socket = remember { ChatSocket(deviceHash = deviceHash) }
+                        var currentServerUrl by remember { mutableStateOf(Session.serverUrl(context)) }
+                        val socket = remember(currentServerUrl) { ChatSocket(serverUrl = currentServerUrl, deviceHash = deviceHash) }
 
                         var loggedIn by remember { mutableStateOf(false) }
                         var busy by remember { mutableStateOf(false) }
@@ -58,7 +59,7 @@ class MainActivity : ComponentActivity() {
                             } else authError = tokenOrError
                         }
 
-                        LaunchedEffect(Unit) {
+                        LaunchedEffect(currentServerUrl) {
                             val saved = Session.token(context)
                             if (saved != null) {
                                 busy = true
@@ -79,6 +80,11 @@ class MainActivity : ComponentActivity() {
                             AuthScreen(
                                 busy = busy,
                                 error = authError,
+                                serverUrl = currentServerUrl,
+                                onUpdateServerUrl = { newUrl ->
+                                    Session.saveServerUrl(context, newUrl)
+                                    currentServerUrl = newUrl
+                                },
                                 onLogin = { n, p -> busy = true; authError = null; socket.login(n, p, null) { ok, r -> afterAuth(ok, r) } },
                                 onRegister = { n, p -> busy = true; authError = null; socket.register(n, p) { ok, r -> afterAuth(ok, r) } },
                                 onGuest = {

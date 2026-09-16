@@ -117,7 +117,7 @@ const check = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name); 
   const quizProm = new Promise(resolve => member.once('new_message', m => resolve(m)));
   await rpc(owner, 'mod_action', { action: 'trigger_quiz' });
   const qMsg = await Promise.race([quizProm, wait(1500).then(() => null)]);
-  check('quiz bot asks question', qMsg && qMsg.senderName.includes('ست وداد'));
+  check('quiz bot asks question', qMsg && qMsg.senderName.includes('الكلمات المبعثرة'));
 
   // Standalone Web Admin Dashboard & REST API
   const adminPageRes = await fetch(`${URL}/admin`);

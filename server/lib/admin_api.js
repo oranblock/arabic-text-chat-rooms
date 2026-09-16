@@ -343,7 +343,7 @@ function handleAdminCommand(socket, user, room, text, ctx) {
         '/kick <اسم> - طرد عضو من الغرفة\n' +
         '/ban <اسم> - حظر عتاد الجهاز نهائياً\n' +
         '/promote <اسم> <MODERATOR|VIP_DIAMOND|REGULAR> - تغيير الرتبة\n' +
-        '/quiz - طرح سؤال مسابقة الآن (ست وداد)\n' +
+        '/quiz - طرح سؤال مسابقة الآن (مسابقات الكلمات المبعثرة)\n' +
         '/broadcast <نص> - إرسال إعلان عام لكافة الغرف\n' +
         '/lock public|private on|off - قفل أو فتح الغرفة\n' +
         '/topic <نص> - تحديث إعلان الروم');
@@ -449,7 +449,7 @@ function handleAdminCommand(socket, user, room, text, ctx) {
     case 'quiz':
     case 'مسابقة': {
       quizBot.askQuestion(room.id);
-      reply('🎮 تم طرح سؤال مسابقة الآن في الغرفة بواسطة ست وداد');
+      reply('🎮 تم طرح سؤال مسابقة الآن في الغرفة بواسطة مسابقات الكلمات المبعثرة');
       return true;
     }
 

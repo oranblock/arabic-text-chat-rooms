@@ -32,9 +32,9 @@ class QuizBot {
 
   get user() {
     return {
-      id: 'bot_widad',
-      name: 'ست وداد 🤖',
-      avatarUrl: 'https://api.dicebear.com/7.x/bottts/png?seed=Widad',
+      id: 'bot_scramble',
+      name: 'مسابقات الكلمات المبعثرة 🎮',
+      avatarUrl: 'https://api.dicebear.com/7.x/bottts/png?seed=ScrambleWords',
       rank: 'BOT',
       customHexColor: '#00E5FF',
       country: 'IQ',
@@ -61,7 +61,7 @@ class QuizBot {
   askQuestion(roomId = 'games') {
     const item = QUESTIONS[Math.floor(Math.random() * QUESTIONS.length)];
     this.activeQuestions.set(roomId, item);
-    const text = `🎮 مسابقة ست وداد: ${item.q} (اكتب الجواب بالشات واربح 10 نقاط! 🏆)`;
+    const text = `🎮 مسابقات الكلمات المبعثرة: ${item.q} (اكتب الجواب بالشات واربح 10 نقاط! 🏆)`;
     const msg = this.makeMessage(this.user, roomId, text);
     this.store.pushMessage(roomId, msg);
     this.io.to(roomId).emit('new_message', msg);

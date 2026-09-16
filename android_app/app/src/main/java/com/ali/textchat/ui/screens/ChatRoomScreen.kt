@@ -626,9 +626,9 @@ private fun AdminPanelDialog(
                     }
                     2 -> {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                            Text("🤖 بوت المسابقات والترفيه", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = BcAccent)
+                            Text("🤖 مسابقات الكلمات المبعثرة", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = BcAccent)
                             Spacer(Modifier.height(6.dp))
-                            Text("ست وداد 🤖", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF00838F))
+                            Text("مسابقات الكلمات المبعثرة 🎮", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF00838F))
                             Spacer(Modifier.height(6.dp))
                             Text(
                                 "بوت ألعاب وألغاز عراقية تفاعلي يطرح أسئلة ثقافية في الشات تلقائياً، ويكافئ أسرع إجابة صحيحة بـ 10 نقاط فوراً!",

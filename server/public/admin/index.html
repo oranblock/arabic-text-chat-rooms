@@ -189,7 +189,7 @@
         <div class="stat-icon" style="color: var(--accent);">🤖</div>
         <div>
           <div class="stat-val" id="stat-bot">نشط</div>
-          <div class="stat-lbl">ست وداد (مسابقات)</div>
+          <div class="stat-lbl">الكلمات المبعثرة (مسابقات)</div>
         </div>
       </div>
     </div>
@@ -199,7 +199,7 @@
       <button class="tab active" onclick="switchTab('users', this)">👥 إدارة الأعضاء المتعددة</button>
       <button class="tab" onclick="switchTab('rooms', this)">🚪 الغرف والشات</button>
       <button class="tab" onclick="switchTab('broadcast', this)">📢 الإذاعة والإعلانات</button>
-      <button class="tab" onclick="switchTab('quiz', this)">🤖 بوت المسابقات ست وداد</button>
+      <button class="tab" onclick="switchTab('quiz', this)">🤖 بوت المسابقات (الكلمات المبعثرة)</button>
       <button class="tab" onclick="switchTab('banned', this)">⛔ عتاد الأجهزة المحظورة</button>
       <button class="tab" onclick="switchTab('terminal', this)">💻 موجه الأوامر السريع (CLI)</button>
     </div>
@@ -285,7 +285,7 @@
     <!-- TAB 4: Quiz Bot -->
     <div id="tab-quiz" class="section-card" style="display: none;">
       <div class="section-header">
-        <div class="section-title">🤖 بوت المسابقات التفاعلي ("ست وداد 🤖")</div>
+        <div class="section-title">🎮 بوت مسابقات الكلمات المبعثرة</div>
         <button class="btn btn-success" onclick="triggerQuiz()">🎯 طرح سؤال مسابقة الآن بالشات</button>
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; flex-wrap: wrap;">
@@ -308,7 +308,7 @@
           </div>
         </div>
         <div>
-          <h4 style="margin-bottom: 12px; color: #38bdf8;">💡 مميزات بوت ست وداد</h4>
+          <h4 style="margin-bottom: 12px; color: #38bdf8;">💡 مميزات بوت المسابقات</h4>
           <div style="background: #0f172a; padding: 18px; border-radius: 12px; border: 1px solid var(--card-border); font-size: 13px; line-height: 1.8; color: var(--text-muted);">
             • يطرح أسئلة ثقافية عراقية وألغاز كلمات دورياً.<br>
             • يراقب رسائل الشات لحظياً ويكتشف الإجابة الصحيحة تلقائياً.<br>
@@ -728,7 +728,7 @@
         });
         const data = await res.json();
         if (data.ok) {
-          alert('🎮 تم طرح سؤال مسابقة الآن في الروم بواسطة ست وداد: ' + data.question.q);
+          alert('🎮 تم طرح سؤال مسابقة الآن في الروم بواسطة مسابقات الكلمات المبعثرة: ' + data.question.q);
           fetchData();
         }
       } catch (e) {

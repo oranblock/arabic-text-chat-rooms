@@ -15,7 +15,7 @@ const DEFAULT_ROOMS = [
   { id: 'iraq', title: 'ديوانية العراق', description: 'الغرفة العامة الرئيسية', topic: 'هلا بيكم بديوانية العراق 🇮🇶 احترموا بعض', youtubeId: 'jfKfPfyJRdk', youtubeTitle: 'موسيقى هادئة - ديوانية العراق 🎵' },
   { id: 'baghdad', title: 'روم بغداد', description: 'سوالف أهل بغداد', topic: '' },
   { id: 'basra', title: 'روم البصرة', description: 'أهل البصرة والجنوب', topic: '' },
-  { id: 'games', title: 'مسابقات ست وداد', description: 'مسابقات وألغاز يومية', topic: 'رتب الحروف واربح نقاط 🏆' },
+  { id: 'games', title: 'مسابقات الكلمات المبعثرة', description: 'مسابقات وألغاز وترتيب حروف يومية', topic: 'رتب الحروف واربح نقاط 🏆' },
   { id: 'songs', title: 'شيلات وأغاني', description: 'يوتيوب وأغاني عراقية', topic: '', youtubeId: 'jfKfPfyJRdk', youtubeTitle: 'أغاني وشيلات عراقية 🎶' }
 ];
 

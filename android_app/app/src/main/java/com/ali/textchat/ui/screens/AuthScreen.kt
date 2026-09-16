@@ -28,6 +28,8 @@ import com.ali.textchat.ui.theme.*
 fun AuthScreen(
     busy: Boolean,
     error: String?,
+    serverUrl: String,
+    onUpdateServerUrl: (String) -> Unit,
     onLogin: (name: String, password: String) -> Unit,
     onRegister: (name: String, password: String) -> Unit,
     onGuest: () -> Unit
@@ -35,6 +37,8 @@ fun AuthScreen(
     var isRegister by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var showServerDialog by remember { mutableStateOf(false) }
+    var tempUrl by remember(serverUrl) { mutableStateOf(serverUrl) }
 
     Box(
         Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(BcHeaderStart, BcHeaderEnd, BcChatBackground))),
@@ -77,7 +81,68 @@ fun AuthScreen(
             Spacer(Modifier.height(6.dp))
             Text("دخول كزائر", color = Color(0xFF666666), fontSize = 13.sp,
                 modifier = Modifier.clickable { if (!busy) onGuest() })
+
+            Spacer(Modifier.height(14.dp))
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable { showServerDialog = true }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("⚙️", fontSize = 12.sp)
+                Spacer(Modifier.width(4.dp))
+                Text("إعدادات سيرفر الربط", color = Color(0xFF888888), fontSize = 11.sp, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline)
+            }
         }
+    }
+
+    if (showServerDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showServerDialog = false },
+            title = {
+                Text("🌐 إعدادات سيرفر الدردشة", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            },
+            text = {
+                Column {
+                    Text(
+                        "السيرفر متصل سحابياً للربط المباشر بين جهازين في أي مكان. يمكنك تغيير العنوان إذا أردت ربط شبكة محلية:",
+                        fontSize = 12.sp,
+                        color = Color(0xFF555555),
+                        lineHeight = 18.sp
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    AuthField(value = tempUrl, hint = "https://...") { tempUrl = it }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "استعادة السيرفر السحابي الافتراضي ↺",
+                        color = BcAccent,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clickable {
+                            tempUrl = com.ali.textchat.data.AppConfig.DEFAULT_SERVER_URL
+                        }
+                    )
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        if (tempUrl.isNotBlank()) {
+                            onUpdateServerUrl(tempUrl.trim())
+                        }
+                        showServerDialog = false
+                    }
+                ) {
+                    Text("حفظ واتصال", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showServerDialog = false }) {
+                    Text("إلغاء")
+                }
+            }
+        )
     }
 }
 
