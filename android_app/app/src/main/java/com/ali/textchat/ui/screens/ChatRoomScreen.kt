@@ -127,9 +127,7 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
                     .padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                RoundBtn(Icons.Default.Share) { }
-                Spacer(Modifier.width(6.dp))
-                RoundBtn(Icons.Default.Star) { }
+                HeadPill(Icons.Default.Home, "قائمة الرومات") { showRooms = true; socket.listRooms() }
                 Spacer(Modifier.weight(1f))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(room?.title ?: "ديوانية العراق", color = BcAccent, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
@@ -209,9 +207,6 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
                     HeadOption(Icons.Default.PersonAdd, requests.size) { socket.loadRequests(); showRequests = true; showMenu = false }
                     if (isStaff(me?.rank)) HeadOption(Icons.Default.Security, 0) { showAdminPanel = true; showMenu = false }
                 }
-            }
-            Box(Modifier.align(Alignment.TopStart).padding(6.dp)) {
-                HeadPill(Icons.Default.Home, "قائمة الرومات") { showRooms = true; socket.listRooms() }
             }
             }
 
