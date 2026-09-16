@@ -36,8 +36,8 @@ import androidx.compose.foundation.layout.FlowRow
 private data class Skin(val fill: Brush, val text: Color, val border: Color)
 
 private fun skinFor(rank: UserRank): Skin = when (rank) {
-    // Owner / manager: black bubble + gold (الذهبي) — reserved for staff.
-    UserRank.OWNER -> Skin(Brush.horizontalGradient(listOf(Color(0xFF000000), Color(0xFF1E1E1E))), Color(0xFFFFD54A), Color(0xFFFFD54A))
+    // Owner / manager: GOLD background (الخلفية ذهبية) + dark text — reserved for staff.
+    UserRank.OWNER -> Skin(Brush.horizontalGradient(listOf(Color(0xFFFFEDA5), Color(0xFFCC9835))), Color(0xFF3A2A00), Color(0xFF856211))
     // Admin / moderator: black bubble + silver (الاسود الفضي) — reserved for staff.
     UserRank.MODERATOR -> Skin(Brush.horizontalGradient(listOf(Color(0xFF1E1E1E), Color(0xFF000000))), Color(0xFFE6E6E6), Color(0xFFCFCFCF))
     UserRank.VIP_DIAMOND -> Skin(Brush.horizontalGradient(listOf(Color(0xFFFFE1E8), Color(0xFFFD62BE))), Color(0xFF3A0A28), Color(0xFFFD62BE))
@@ -83,11 +83,13 @@ fun MessageBubble(
             .padding(start = 6.dp, end = 10.dp, top = 2.dp, bottom = 2.dp),
         verticalAlignment = Alignment.Top
     ) {
-        // Large rounded-square avatar on the right, like iqchat.top (~60dp)
+        // Large rounded-square avatar on the right, like iqchat.top (~60dp).
+        // Staff get a thick, solid frame (gold=owner, silver=mod) so it's unmistakable.
+        val frameWidth = if (isStaffRank) 4.dp else 2.dp
         Box(
             modifier = Modifier
                 .size(60.dp)
-                .border(2.dp, skin.border.copy(alpha = 0.9f), avatarShape)
+                .border(frameWidth, skin.border.copy(alpha = if (isStaffRank) 1f else 0.9f), avatarShape)
                 .padding(2.dp)
                 .clip(avatarShape)
                 .background(Color(colorForName(message.senderName)))
