@@ -27,6 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.foundation.shape.CircleShape
 import com.ali.textchat.model.ChatUser
 import com.ali.textchat.model.UserRank
 import com.ali.textchat.ui.theme.*
@@ -97,15 +99,34 @@ fun OnlineUsersDrawer(
     }
 }
 
+// Dashed magenta pill section header, exactly like iqchat.top
 @Composable
 private fun GroupHeader(title: String, count: Int) {
-    Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(title, color = Color(0xFF444444), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.width(6.dp))
-        Text(
-            "$count", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-            modifier = Modifier.background(BcAccent, RoundedCornerShape(10.dp)).padding(horizontal = 7.dp, vertical = 1.dp)
-        )
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp, bottom = 4.dp)
+            .drawBehind {
+                drawRoundRect(
+                    color = BcAccent,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = 3f,
+                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(18f, 12f), 0f)
+                    ),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(44f, 44f)
+                )
+            }
+            .padding(vertical = 12.dp, horizontal = 14.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, color = Color(0xFF1E88E5), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.width(8.dp))
+            Box(
+                Modifier.size(22.dp).clip(CircleShape).background(BcAccent),
+                contentAlignment = Alignment.Center
+            ) { Text("$count", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+        }
     }
 }
 
