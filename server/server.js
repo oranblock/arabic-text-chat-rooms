@@ -550,11 +550,14 @@ io.on('connection', (socket) => {
     if (room && videoId) {
       room.youtubeId = videoId;
       if (videoTitle) room.youtubeTitle = videoTitle;
+      room.youtubeStartedAt = now();
       store.save();
     }
     io.to(p.roomId).emit('youtube_updated', {
       videoId,
       videoTitle: videoTitle || room?.youtubeTitle || 'يوتيوب مشترك',
+      startedAt: room?.youtubeStartedAt || now(),
+      offset: 0,
       status: status || 'play',
       by: user.name
     });
