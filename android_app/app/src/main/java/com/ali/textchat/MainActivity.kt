@@ -87,7 +87,13 @@ class MainActivity : ComponentActivity() {
                                     currentServerUrl = newUrl
                                 },
                                 onLogin = { n, p -> busy = true; authError = null; socket.login(n, p, null) { ok, r -> afterAuth(ok, r) } },
-                                onRegister = { n, p -> busy = true; authError = null; socket.register(n, p) { ok, r -> afterAuth(ok, r) } },
+                                onRegister = { n, p, age, gender, country, status ->
+                                    busy = true; authError = null
+                                    socket.register(n, p) { ok, r ->
+                                        if (ok) socket.updateProfile(null, null, status.ifBlank { null }, null, age.toIntOrNull(), gender, country.ifBlank { null }) { _, _ -> }
+                                        afterAuth(ok, r)
+                                    }
+                                },
                                 onGuest = {
                                     busy = true; authError = null
                                     val guest = "زائر" + (1000..9999).random()

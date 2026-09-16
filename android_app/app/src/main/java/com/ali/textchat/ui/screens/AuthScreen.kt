@@ -31,12 +31,16 @@ fun AuthScreen(
     serverUrl: String,
     onUpdateServerUrl: (String) -> Unit,
     onLogin: (name: String, password: String) -> Unit,
-    onRegister: (name: String, password: String) -> Unit,
+    onRegister: (name: String, password: String, age: String, gender: String, country: String, status: String) -> Unit,
     onGuest: () -> Unit
 ) {
     var isRegister by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var age by remember { mutableStateOf("") }
+    var gender by remember { mutableStateOf("male") }
+    var country by remember { mutableStateOf("العراق") }
+    var status by remember { mutableStateOf("") }
     var showServerDialog by remember { mutableStateOf(false) }
     var tempUrl by remember(serverUrl) { mutableStateOf(serverUrl) }
 
@@ -61,6 +65,23 @@ fun AuthScreen(
             Spacer(Modifier.height(10.dp))
             AuthField(password, "الرمز السري", isPassword = true) { password = it }
 
+            if (isRegister) {
+                Spacer(Modifier.height(10.dp))
+                AuthField(age, "العمر") { if (it.length <= 2 && it.all { c -> c.isDigit() }) age = it }
+                Spacer(Modifier.height(10.dp))
+                AuthField(country, "البلد") { country = it }
+                Spacer(Modifier.height(10.dp))
+                AuthField(status, "الحالة (اختياري)") { status = it }
+                Spacer(Modifier.height(10.dp))
+                Text("نوع الجنس", color = Color(0xFF888888), fontSize = 12.sp)
+                Spacer(Modifier.height(6.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GenderChip("ذكر", gender == "male", Modifier.weight(1f)) { gender = "male" }
+                    GenderChip("أنثى", gender == "female", Modifier.weight(1f)) { gender = "female" }
+                    GenderChip("آخر", gender == "other", Modifier.weight(1f)) { gender = "other" }
+                }
+            }
+
             if (error != null) {
                 Spacer(Modifier.height(10.dp))
                 Text(error, color = Color(0xFFD32F2F), fontSize = 12.sp, textAlign = TextAlign.Center)
@@ -69,7 +90,7 @@ fun AuthScreen(
             Spacer(Modifier.height(16.dp))
             PrimaryButton(if (isRegister) "إنشاء حساب" else "تسجيل الدخول", busy) {
                 if (name.isNotBlank() && password.isNotBlank()) {
-                    if (isRegister) onRegister(name.trim(), password) else onLogin(name.trim(), password)
+                    if (isRegister) onRegister(name.trim(), password, age, gender, country.trim(), status.trim()) else onLogin(name.trim(), password)
                 }
             }
             Spacer(Modifier.height(10.dp))
@@ -166,6 +187,21 @@ private fun AuthField(value: String, hint: String, isPassword: Boolean = false, 
             visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
             modifier = Modifier.fillMaxWidth()
         )
+    }
+}
+
+@Composable
+private fun GenderChip(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(
+        modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (selected) BcAccent else BcInputFill)
+            .border(1.dp, if (selected) BcAccent else BcInputBorder, RoundedCornerShape(8.dp))
+            .clickable { onClick() }
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(label, color = if (selected) Color.White else Color(0xFF555555), fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }
 }
 
