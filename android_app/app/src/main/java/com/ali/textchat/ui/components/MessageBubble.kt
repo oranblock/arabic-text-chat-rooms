@@ -105,14 +105,8 @@ fun MessageBubble(
                     modifier = Modifier.fillMaxSize()
                 )
             }
-            // VIP / staff "dress": a small decoration badge on the avatar corner
-            val deco = when (message.senderRank) {
-                UserRank.OWNER -> "👑"
-                UserRank.MODERATOR -> "🛡️"
-                UserRank.VIP_DIAMOND -> "🎩"
-                else -> null
-            }
-            if (deco != null) Text(deco, fontSize = 15.sp, modifier = Modifier.align(Alignment.TopEnd))
+            // Rank is NOT shown on the avatar (client's request); it appears as a
+            // small icon next to the time/name inside the bubble instead.
         }
 
         Spacer(Modifier.width(8.dp))

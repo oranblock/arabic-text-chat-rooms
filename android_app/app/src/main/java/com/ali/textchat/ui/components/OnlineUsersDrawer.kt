@@ -44,8 +44,8 @@ fun OnlineUsersDrawer(
 ) {
     var query by remember { mutableStateOf("") }
     val shown = users.filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }
-    val interactive = shown.filter { it.rank == UserRank.REGULAR && !it.isMuted }
     val premium = shown.filter { it.rank == UserRank.VIP_DIAMOND || it.rank == UserRank.OWNER || it.rank == UserRank.MODERATOR }
+    val interactive = shown.filter { it.rank == UserRank.REGULAR && !it.isMuted }
     val bots = shown.filter { it.rank == UserRank.BOT }
     val muted = shown.filter { it.isMuted }
 
