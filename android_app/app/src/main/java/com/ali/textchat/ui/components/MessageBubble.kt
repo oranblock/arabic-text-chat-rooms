@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -37,7 +38,7 @@ private data class Skin(val fill: Brush, val text: Color, val border: Color)
 private fun skinFor(rank: UserRank): Skin = when (rank) {
     UserRank.OWNER -> Skin(Brush.horizontalGradient(listOf(BcGoldC, BcGoldB, BcGoldA)), Color(0xFF222222), BcGoldA)
     UserRank.MODERATOR -> Skin(Brush.horizontalGradient(listOf(BcVioletB, BcVioletA)), Color(0xFFFFE7E7), BcVioletA)
-    UserRank.VIP_DIAMOND -> Skin(Brush.horizontalGradient(listOf(BcSkinPurple, BcSkinPurple)), Color.White, BcSkinPurple)
+    UserRank.VIP_DIAMOND -> Skin(Brush.horizontalGradient(listOf(Color(0xFFFFE1E8), Color(0xFFFD62BE))), Color(0xFF3A0A28), Color(0xFFFD62BE))
     UserRank.REGULAR -> Skin(Brush.horizontalGradient(listOf(Color(0xFF4A4A4A), Color(0xFF4A4A4A))), Color.White, Color(0xFF4A4A4A))
     UserRank.BOT -> Skin(Brush.horizontalGradient(listOf(Color(0xFF233548), Color(0xFF233548))), Color.White, Color(0xFF00E5FF))
 }
@@ -119,6 +120,10 @@ fun MessageBubble(
                 .clip(RoundedCornerShape(12.dp))
                 .clickable { onUserMention(message.senderName) }
                 .background(skin.fill)
+                .drawBehind {
+                    // iqchat .chatbox has a thick colored left border + soft shadow
+                    drawRect(skin.border, topLeft = androidx.compose.ui.geometry.Offset(0f, 0f), size = androidx.compose.ui.geometry.Size(6f, size.height))
+                }
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center
         ) {
