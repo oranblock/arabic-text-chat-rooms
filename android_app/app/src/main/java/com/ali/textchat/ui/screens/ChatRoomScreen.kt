@@ -579,6 +579,19 @@ private fun AccountPanelDialog(
                 AccountRow(Icons.Default.VpnKey, "تغيير الباسوورد", onChangePassword)
                 AccountRow(Icons.Default.Delete, "الغاء الاشتراك", onDeleteAccount, danger = true)
                 AccountRow(Icons.AutoMirrored.Filled.Logout, "تسجيل خروج", onLogout)
+                Spacer(Modifier.height(12.dp))
+                Box(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "✨ الرسوم التعبيرية المتحركة مدعومة بواسطة\nGoogle Noto Animated Emoji & Microsoft Fluent\nتحت رخص CC-BY 4.0 و MIT مفتوحة المصدر",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 10.5.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        lineHeight = 15.sp
+                    )
+                }
             }
         }
     }
@@ -770,22 +783,109 @@ private fun EmojiAndEmoticonPicker(onEmoji: (String) -> Unit, onEmoticon: (Strin
     val context = androidx.compose.ui.platform.LocalContext.current
     val codes = remember { com.ali.textchat.ui.util.Emoticons.codes(context) }
     val loader = remember { com.ali.textchat.ui.util.gifCapableLoader(context) }
-    Column(Modifier.fillMaxWidth().background(Color.White)) {
-        if (codes.isNotEmpty()) {
-            androidx.compose.foundation.lazy.LazyRow(Modifier.fillMaxWidth().padding(6.dp)) {
-                items(codes.size) { i ->
-                    coil.compose.AsyncImage(
-                        model = com.ali.textchat.ui.util.Emoticons.assetUri(codes[i]),
-                        imageLoader = loader, contentDescription = codes[i],
-                        modifier = Modifier.padding(4.dp).size(34.dp).clickable { onEmoticon(codes[i]) }
+    val lottieItems = remember { com.ali.textchat.ui.util.LottieEmojis.items }
+    var selectedTab by remember { mutableIntStateOf(0) }
+
+    Column(Modifier.fillMaxWidth().background(Color.White).border(1.dp, BcInputBorder)) {
+        // Tab Selector Row
+        Row(
+            Modifier.fillMaxWidth().background(Color(0xFFF8FAFC)).padding(horizontal = 8.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            val tabs = listOf("✨ متحرك (Lottie)", "😀 إيموجي", "🇮🇶 تعبيرات")
+            tabs.forEachIndexed { index, title ->
+                val isSelected = selectedTab == index
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(if (isSelected) BcAccent else Color.Transparent)
+                        .clickable { selectedTab = index }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        title,
+                        color = if (isSelected) Color.White else Color(0xFF64748B),
+                        fontSize = 12.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                     )
                 }
             }
-            Box(Modifier.fillMaxWidth().height(1.dp).background(BcInputBorder))
         }
-        val emojis = listOf("😀","😂","😍","😎","😭","😅","🤣","😊","😘","🥰","😔","😢","👍","👏","🙏","💪","🔥","❤️","💔","💯","🌹","🎉","✨","⭐","😡","🤔","😴","🤯","🥳","😇","🙈","💎","👑","🇮🇶","🎵","☕")
-        LazyVerticalGrid(GridCells.Fixed(8), modifier = Modifier.fillMaxWidth().heightIn(max = 150.dp).padding(6.dp)) {
-            items(emojis.size) { i -> Text(emojis[i], fontSize = 22.sp, modifier = Modifier.padding(4.dp).clickable { onEmoji(emojis[i]) }) }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(BcInputBorder))
+
+        when (selectedTab) {
+            0 -> {
+                // Tab 0: Lottie Vector Animated Emojis (Google Noto Animation)
+                LazyVerticalGrid(
+                    GridCells.Fixed(4),
+                    modifier = Modifier.fillMaxWidth().height(160.dp).padding(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(lottieItems.size) { i ->
+                        val item = lottieItems[i]
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFF1F5F9))
+                                .clickable { onEmoticon(item.code) }
+                                .padding(vertical = 6.dp)
+                        ) {
+                            com.ali.textchat.ui.util.LottieEmojiView(code = item.code, size = 36.dp)
+                            Spacer(Modifier.height(2.dp))
+                            Text(item.nameAr, fontSize = 10.sp, color = Color(0xFF475569), fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+            }
+            1 -> {
+                // Tab 1: Standard Unicode Emojis
+                val emojis = listOf(
+                    "😀","😂","😍","😎","😭","😅","🤣","😊","😘","🥰",
+                    "😔","😢","👍","👏","🙏","💪","🔥","❤️","💔","💯",
+                    "🌹","🎉","✨","⭐","😡","🤔","😴","🤯","🥳","😇",
+                    "🙈","💎","👑","🇮🇶","🎵","☕","🤝","✌️","🌸","🎂"
+                )
+                LazyVerticalGrid(GridCells.Fixed(8), modifier = Modifier.fillMaxWidth().height(160.dp).padding(6.dp)) {
+                    items(emojis.size) { i ->
+                        Text(
+                            emojis[i],
+                            fontSize = 22.sp,
+                            modifier = Modifier.padding(4.dp).clickable { onEmoji(emojis[i]) }
+                        )
+                    }
+                }
+            }
+            2 -> {
+                // Tab 2: GIF / Iraqi Emoticons
+                if (codes.isNotEmpty()) {
+                    LazyVerticalGrid(GridCells.Fixed(4), modifier = Modifier.fillMaxWidth().height(160.dp).padding(6.dp)) {
+                        items(codes.size) { i ->
+                            Box(
+                                modifier = Modifier
+                                    .padding(4.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFFF8FAFC))
+                                    .clickable { onEmoticon(codes[i]) }
+                                    .padding(8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                coil.compose.AsyncImage(
+                                    model = com.ali.textchat.ui.util.Emoticons.assetUri(codes[i]),
+                                    imageLoader = loader,
+                                    contentDescription = codes[i],
+                                    modifier = Modifier.size(36.dp)
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Box(Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
+                        Text("لا توجد صور تعبيرية إضافية", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                    }
+                }
+            }
         }
     }
 }

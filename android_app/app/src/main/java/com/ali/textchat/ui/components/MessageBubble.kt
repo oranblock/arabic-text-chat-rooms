@@ -295,7 +295,7 @@ private fun AudioBubblePlayer(audioUrl: String, durationSec: Int, textColor: Col
 private fun EmoticonText(text: String, color: Color) {
     val context = LocalContext.current
     val known = remember { Emoticons.codes(context).toSet() }
-    if (known.isEmpty() || !text.contains(':')) {
+    if (!text.contains(':')) {
         Text(text, color = color, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
         return
     }
@@ -310,6 +310,10 @@ private fun EmoticonText(text: String, color: Color) {
                     imageLoader = loader,
                     contentDescription = tk.code,
                     modifier = Modifier.size(24.dp)
+                )
+                is Emoticons.Token.Lottie -> com.ali.textchat.ui.util.LottieEmojiView(
+                    code = tk.code,
+                    size = 32.dp
                 )
             }
         }

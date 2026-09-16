@@ -70,10 +70,11 @@ dependencies {
     implementation(libs.koin.android)
     implementation(libs.koin.androidx.compose)
 
-    // Image Loading
+    // Image & Vector Animation Loading
     implementation(libs.coil.compose)
     implementation(libs.coil.svg)
     implementation(libs.coil.gif)
+    implementation(libs.lottie.compose)
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)

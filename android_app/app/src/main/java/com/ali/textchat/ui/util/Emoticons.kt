@@ -31,15 +31,22 @@ object Emoticons {
 
     fun assetUri(code: String) = "file:///android_asset/emoticons/$code.gif"
 
-    /** Splits text into plain runs and ":code:" emoticon tokens for inline rendering. */
+    /** Splits text into plain runs, Lottie vector animations, and ":code:" emoticon tokens. */
     fun tokenize(text: String, known: Set<String>): List<Token> {
         val out = mutableListOf<Token>()
-        val regex = Regex(":([A-Za-z0-9_]+):")
+        val regex = Regex(":([A-Za-z0-9_\\u0600-\\u06FF]+):")
         var last = 0
         for (m in regex.findAll(text)) {
             if (m.range.first > last) out.add(Token.Text(text.substring(last, m.range.first)))
-            val code = m.groupValues[1]
-            if (code in known) out.add(Token.Emoticon(code)) else out.add(Token.Text(m.value))
+            val rawCode = m.groupValues[1]
+            if (LottieEmojis.isLottieCode(rawCode)) {
+                val item = LottieEmojis.resolveItem(rawCode)
+                out.add(Token.Lottie(item?.code ?: rawCode))
+            } else if (rawCode in known) {
+                out.add(Token.Emoticon(rawCode))
+            } else {
+                out.add(Token.Text(m.value))
+            }
             last = m.range.last + 1
         }
         if (last < text.length) out.add(Token.Text(text.substring(last)))
@@ -49,6 +56,7 @@ object Emoticons {
     sealed class Token {
         data class Text(val value: String) : Token()
         data class Emoticon(val code: String) : Token()
+        data class Lottie(val code: String) : Token()
     }
 }
 
