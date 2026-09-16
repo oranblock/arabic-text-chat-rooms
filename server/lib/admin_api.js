@@ -268,10 +268,43 @@ function createAdminRouter({ store, auth, online, io, quizBot, publicUser, rooms
 
   // Quiz Bot Trigger
   router.post('/quiz-trigger', requireStaff, (req, res) => {
+    const { roomId, botId } = req.body || {};
+    const targetRoom = roomId || 'games';
+    const q = quizBot.askQuestion(targetRoom, botId);
+    res.json({ ok: true, question: q });
+  });
+
+  // Bot Management Endpoints
+  router.get('/bots', requireStaff, (_req, res) => {
+    res.json({
+      ok: true,
+      bots: Array.from(quizBot.bots.values()),
+      totalQuestions: quizBot.questions.length,
+      activeQuestions: Object.fromEntries(
+        Array.from(quizBot.activeQuestions.entries()).map(([rId, q]) => [rId, { q: q.q, botName: q.botName, askedAt: q.askedAt }])
+      ),
+      autoRooms: Array.from(quizBot.autoRooms.keys())
+    });
+  });
+
+  router.post('/bots/import', requireStaff, (req, res) => {
+    const importRes = quizBot.importData(req.body);
+    if (!importRes.ok) return res.status(400).json(importRes);
+    res.json(importRes);
+  });
+
+  router.post('/bots/summon', requireStaff, (req, res) => {
+    const { roomId, botId } = req.body || {};
+    const targetRoom = roomId || 'games';
+    const summoned = quizBot.summonBot(targetRoom, botId, req.adminUser);
+    res.json({ ok: !!summoned, bot: summoned });
+  });
+
+  router.post('/bots/dismiss', requireStaff, (req, res) => {
     const { roomId } = req.body || {};
     const targetRoom = roomId || 'games';
-    const q = quizBot.askQuestion(targetRoom);
-    res.json({ ok: true, question: q });
+    const dismissed = quizBot.dismissBot(targetRoom, req.adminUser);
+    res.json({ ok: true, dismissed });
   });
 
   // CLI Command Execution from Dashboard Terminal
@@ -320,6 +353,102 @@ function handleAdminCommand(socket, user, room, text, ctx) {
     socket.emit('error_alert', { message: msg });
   };
 
+  // Bot commands
+  if (cmd === 'bots' || cmd === 'البوتات' || cmd === 'قائمة_البوتات') {
+    const list = Array.from(quizBot.bots.values()).map((b, i) => `${i + 1}. ${b.name} (${b.id}) - ${b.role}`).join('\n');
+    reply(`🤖 قائمة البوتات المتاحة:\n${list}\n\n💡 لاستدعاء بوت: /bot summon <معرف_البوت>`);
+    return true;
+  }
+
+  if (cmd === 'bot' || cmd === 'بوت') {
+    const sub = (parts[1] || '').toLowerCase();
+    if (!sub || sub === 'help' || sub === 'مساعدة') {
+      reply(`🤖 أوامر إدارة البوتات:
+/bot summon <معرف_البوت> (استدعاء بوت للغرفة)
+/bot dismiss (صرف البوت وإيقاف مسابقاته)
+/bot quiz (طرح سؤال مسابقة فوري)
+/bot auto on [ثواني] (تشغيل المسابقات التلقائية)
+/bot auto off (إيقاف المسابقات التلقائية)
+/bot import <نص_json> (استيراد أسئلة أو بوتات)
+/bots (عرض قائمة جميع البوتات)`);
+      return true;
+    }
+
+    if (sub === 'summon' || sub === 'استدعاء') {
+      if (!isStaff(user)) { reply('⚠️ استدعاء البوتات مخصص للإدارة والمشرفين'); return true; }
+      const botQuery = parts.slice(2).join(' ').trim() || 'bot_widad';
+      const summoned = quizBot.summonBot(room.id, botQuery, user);
+      if (!summoned) { reply('⚠️ لم يتم العثور على البوت المطلوب'); return true; }
+      reply(`✅ تم استدعاء [ ${summoned.name} ] إلى الغرفة بنجاح`);
+      return true;
+    }
+
+    if (sub === 'dismiss' || sub === 'صرف' || sub === 'طرد' || sub === 'stop' || sub === 'ايقاف') {
+      if (!isStaff(user)) { reply('⚠️ صرف البوتات مخصص للإدارة والمشرفين'); return true; }
+      const dismissed = quizBot.dismissBot(room.id, user);
+      reply(`🛑 تم صرف البوت [ ${dismissed ? dismissed.name : 'البوت'} ] وتوقفت مسابقاته في الغرفة`);
+      return true;
+    }
+
+    if (sub === 'quiz' || sub === 'سؤال' || sub === 'مسابقة') {
+      const qRes = quizBot.askQuestion(room.id);
+      if (qRes && qRes.alreadyActive) {
+        reply(`⚠️ يوجد سؤال قيد الحل حالياً في الغرفة: ${qRes.q} (متبقي ${qRes.remainingSec} ثانية)`);
+      } else if (qRes && qRes.ok) {
+        reply(`🎮 تم طرح سؤال مسابقة الآن بواسطة ${qRes.bot.name}`);
+      }
+      return true;
+    }
+
+    if (sub === 'auto' || sub === 'تلقائي') {
+      if (!isStaff(user)) { reply('⚠️ التحكم بالوضع التلقائي مخصص للإدارة'); return true; }
+      const mode = (parts[2] || '').toLowerCase();
+      if (mode === 'on' || mode === 'تشغيل' || mode === '1') {
+        const sec = parseInt(parts[3], 10) || 60;
+        quizBot.enableAuto(room.id, sec);
+        reply(`✅ تم تفعيل الوضع التلقائي للمسابقات كل ${sec} ثانية`);
+      } else {
+        quizBot.disableAuto(room.id);
+        reply('🛑 تم إيقاف الوضع التلقائي للمسابقات. سيبقى البوت صامتاً حتى يتم استدعاؤه');
+      }
+      return true;
+    }
+
+    if (sub === 'import' || sub === 'استيراد') {
+      if (user.rank !== 'OWNER') { reply('⚠️ استيراد الأسئلة والبوتات محصور للمالك العام OWNER'); return true; }
+      const jsonStr = parts.slice(2).join(' ').trim();
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const res = quizBot.importData(parsed);
+        if (res.ok) {
+          reply(`🎉 تم استيراد ${res.importedQuestions} سؤال و ${res.importedBots} بوت بنجاح! الإجمالي: ${res.totalQuestions} سؤال.`);
+        } else {
+          reply(`⚠️ خطأ في الاستيراد: ${res.error}`);
+        }
+      } catch (e) {
+        reply(`⚠️ صيغة JSON غير صحيحة: ${e.message}\nمثال: /bot import {"questions":[{"q":"سؤال","a":"جواب","points":10}]}`);
+      }
+      return true;
+    }
+  }
+
+  // Quick summon aliases
+  if (cmd === 'summon' || cmd === 'استدعاء') {
+    if (!isStaff(user)) { reply('⚠️ استدعاء البوتات مخصص للإدارة والمشرفين'); return true; }
+    const botQuery = parts.slice(1).join(' ').trim() || 'bot_widad';
+    const summoned = quizBot.summonBot(room.id, botQuery, user);
+    if (!summoned) { reply('⚠️ لم يتم العثور على البوت المطلوب'); return true; }
+    reply(`✅ تم استدعاء [ ${summoned.name} ] إلى الغرفة بنجاح`);
+    return true;
+  }
+
+  if (cmd === 'dismiss' || cmd === 'صرف' || cmd === 'صرف_البوت' || cmd === 'طرد_البوت') {
+    if (!isStaff(user)) { reply('⚠️ صرف البوتات مخصص للإدارة والمشرفين'); return true; }
+    const dismissed = quizBot.dismissBot(room.id, user);
+    reply(`🛑 تم صرف البوت [ ${dismissed ? dismissed.name : 'البوت'} ] من الغرفة`);
+    return true;
+  }
+
   // Commands available to all users in the room
   if (cmd === 'yt' || cmd === 'youtube' || cmd === 'يوتيوب' || cmd === 'play') {
     const target = parts.slice(1).join(' ').trim();
@@ -340,6 +469,7 @@ function handleAdminCommand(socket, user, room, text, ctx) {
     room.youtubeTitle = 'فيديو بواسطة ' + user.name;
     room.youtubeStartedAt = now();
     room.youtubeStartedBy = user.name;
+    room.isWelcome = false;
     store.save();
     io.to(room.id).emit('youtube_updated', {
       videoId: ytId,
@@ -348,7 +478,8 @@ function handleAdminCommand(socket, user, room, text, ctx) {
       startedBy: user.name,
       offset: 0,
       status: 'play',
-      by: user.name
+      by: user.name,
+      isWelcome: false
     });
     io.to(room.id).emit('system_message', {
       roomId: room.id,
@@ -369,6 +500,7 @@ function handleAdminCommand(socket, user, room, text, ctx) {
     room.youtubeTitle = '';
     room.youtubeStartedAt = 0;
     room.youtubeStartedBy = '';
+    room.isWelcome = false;
     store.save();
     io.to(room.id).emit('youtube_updated', {
       videoId: '',
@@ -377,13 +509,83 @@ function handleAdminCommand(socket, user, room, text, ctx) {
       startedBy: '',
       offset: 0,
       status: 'stop',
-      by: user.name
+      by: user.name,
+      isWelcome: false
     });
     io.to(room.id).emit('system_message', {
       roomId: room.id,
       text: `🛑 قام ${user.name} بإيقاف الفيديو في الغرفة`,
       at: now()
     });
+    return true;
+  }
+
+  // Welcome Video commands for Staff
+  if (cmd === 'welcome_yt' || cmd === 'ترحيب' || cmd === 'فيديو_ترحيب') {
+    if (!isStaff(user)) {
+      reply('⚠️ تعيين فيديو الترحيب مخصص للإدارة والمشرفين فقط');
+      return true;
+    }
+    const target = parts.slice(1).join(' ').trim();
+    const filter = require('./filter');
+    const ytId = filter.youtubeId(target) || target;
+    if (!ytId) {
+      reply('⚠️ اكتب رابط اليوتيوب: /ترحيب رابط_اليوتيوب');
+      return true;
+    }
+    room.welcomeVideoId = ytId;
+    room.welcomeVideoTitle = `فيديو ترحيبي - ${room.title}`;
+    room.youtubeId = ytId;
+    room.youtubeTitle = room.welcomeVideoTitle;
+    room.youtubeStartedAt = now();
+    room.youtubeStartedBy = 'فيديو ترحيبي';
+    room.isWelcome = true;
+    store.save();
+    io.to(room.id).emit('youtube_updated', {
+      videoId: ytId,
+      videoTitle: room.youtubeTitle,
+      startedAt: room.youtubeStartedAt,
+      startedBy: 'فيديو ترحيبي',
+      offset: 0,
+      status: 'play',
+      by: 'الإدارة',
+      isWelcome: true
+    });
+    io.to(room.id).emit('system_message', {
+      roomId: room.id,
+      text: `🎬 قام المشرف ${user.name} بتعيين فيديو ترحيبي رسمي للغرفة 🌟`,
+      at: now()
+    });
+    reply(`✅ تم تعيين الفيديو الترحيبي بنجاح للغرفة: ${room.title}`);
+    return true;
+  }
+
+  if (cmd === 'del_welcome' || cmd === 'حذف_الترحيب') {
+    if (!isStaff(user)) {
+      reply('⚠️ حذف فيديو الترحيب مخصص للإدارة والمشرفين فقط');
+      return true;
+    }
+    room.welcomeVideoId = '';
+    room.welcomeVideoTitle = '';
+    if (room.isWelcome) {
+      room.youtubeId = '';
+      room.youtubeTitle = '';
+      room.youtubeStartedAt = 0;
+      room.youtubeStartedBy = '';
+      room.isWelcome = false;
+      io.to(room.id).emit('youtube_updated', {
+        videoId: '',
+        videoTitle: '',
+        startedAt: 0,
+        startedBy: '',
+        offset: 0,
+        status: 'stop',
+        by: user.name,
+        isWelcome: false
+      });
+    }
+    store.save();
+    reply('✅ تم حذف الفيديو الترحيبي للغرفة');
     return true;
   }
 
@@ -578,8 +780,12 @@ function handleAdminCommand(socket, user, room, text, ctx) {
 
     case 'quiz':
     case 'مسابقة': {
-      quizBot.askQuestion(room.id);
-      reply('🎮 تم طرح سؤال مسابقة الآن في الغرفة بواسطة مسابقات الكلمات المبعثرة');
+      const qRes = quizBot.askQuestion(room.id);
+      if (qRes && qRes.alreadyActive) {
+        reply(`⚠️ يوجد سؤال قيد الحل حالياً في الغرفة: ${qRes.q} (متبقي ${qRes.remainingSec} ثانية)`);
+      } else if (qRes && qRes.ok) {
+        reply(`🎮 تم طرح سؤال مسابقة الآن بواسطة ${qRes.bot.name}`);
+      }
       return true;
     }
 
@@ -633,12 +839,19 @@ function handleAdminCommand(socket, user, room, text, ctx) {
       const ytId = filter.youtubeId(target) || target;
       room.youtubeId = ytId;
       room.youtubeTitle = 'فيديو بواسطة ' + user.name;
+      room.youtubeStartedAt = now();
+      room.youtubeStartedBy = user.name;
+      room.isWelcome = false;
       store.save();
       io.to(room.id).emit('youtube_updated', {
         videoId: ytId,
         videoTitle: room.youtubeTitle,
+        startedAt: room.youtubeStartedAt,
+        startedBy: user.name,
+        offset: 0,
         status: 'play',
-        by: user.name
+        by: user.name,
+        isWelcome: false
       });
       reply('🎬 تم تغيير وتزامن فيديو اليوتيوب في الغرفة: ' + ytId);
       return true;

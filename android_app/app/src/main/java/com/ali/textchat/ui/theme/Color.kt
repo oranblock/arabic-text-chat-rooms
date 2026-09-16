@@ -24,9 +24,9 @@ val GhostBorder = Color(0xFFD8B4FE)
 val BcChatBackground = Color(0xFFFFF8DC)      // .background_chat
 val BcBody = Color(0xFFEDEDED)                // body
 val BcAccent = Color(0xFFCE34E9)              // .theme_btn, #content border, .user_item border
-// Royal-blue top bar per client condition 1 (was iqchat green #246D07→#28C76F).
-val BcHeaderStart = Color(0xFF172554)         // royal blue dark
-val BcHeaderEnd = Color(0xFF2563EB)           // royal blue
+// Magenta chrome, exact iqchat.top look (client wants the screenshot 1:1).
+val BcHeaderStart = Color(0xFFA046E6)         // magenta (darker)
+val BcHeaderEnd = Color(0xFFCE34E9)           // magenta accent
 val BcInputFill = Color(0xFFF2F2F2)           // input, textarea
 val BcInputBorder = Color(0xFFE6E6E6)
 val BcTime = Color(0xFF999999)                // .cclear

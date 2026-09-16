@@ -52,8 +52,9 @@ function roomUsers(roomId) {
       if (u) out.push(publicUser(u));
     }
   }
-  if (roomId === 'games' || roomId === 'iraq') {
-    out.push(quizBot.user);
+  const roomBots = quizBot.getBotsForRoom ? quizBot.getBotsForRoom(roomId) : [];
+  for (const b of roomBots) {
+    out.push(b);
   }
   return out;
 }
@@ -156,9 +157,19 @@ app.get('/player/:videoId', (req, res) => {
           origin: window.location.origin
         },
         events: {
+          'onReady': onPlayerReady,
           'onStateChange': onPlayerStateChange
         }
       });
+    }
+
+    function onPlayerReady(event) {
+      try {
+        var dur = player.getDuration();
+        if (dur > 0 && ${start} >= dur) {
+          onPlayerStateChange({ data: 0 });
+        }
+      } catch(e) {}
     }
 
     function onPlayerStateChange(event) {
@@ -184,6 +195,88 @@ io.use((socket, next) => {
   }
   next();
 });
+
+function checkAndExpireRoomVideo(room) {
+  if (!room || !room.youtubeId) return;
+  if (room.isWelcome) return; // Welcome videos don't auto-expire
+
+  const elapsedSec = room.youtubeStartedAt ? Math.max(0, Math.floor((now() - room.youtubeStartedAt) / 1000)) : 999999;
+  const maxDurationSec = room.youtubeDurationSec || 600; // Default max 10 minutes for in-chat video
+
+  if (elapsedSec >= maxDurationSec) {
+    const q = room.youtubeQueue || [];
+    if (q.length > 0) {
+      const nextItem = q.shift();
+      room.youtubeId = nextItem.videoId;
+      room.youtubeTitle = nextItem.title || ('فيديو بواسطة ' + nextItem.by);
+      room.youtubeStartedAt = now();
+      room.youtubeStartedBy = nextItem.by;
+      room.isWelcome = false;
+      store.save();
+      io.to(room.id).emit('youtube_updated', {
+        videoId: nextItem.videoId,
+        videoTitle: room.youtubeTitle,
+        startedAt: room.youtubeStartedAt,
+        startedBy: nextItem.by,
+        offset: 0,
+        status: 'play',
+        by: nextItem.by,
+        isWelcome: false
+      });
+      io.to(room.id).emit('system_message', {
+        roomId: room.id,
+        text: `🎬 بدأ تلقائياً الفيديو التالي في قائمة الانتظار: ${room.youtubeTitle} (بواسطة ${nextItem.by}) 🎵`,
+        at: now()
+      });
+    } else if (room.welcomeVideoId) {
+      room.youtubeId = room.welcomeVideoId;
+      room.youtubeTitle = room.welcomeVideoTitle || ('فيديو ترحيبي - ' + room.title);
+      room.youtubeStartedAt = now();
+      room.youtubeStartedBy = 'فيديو ترحيبي';
+      room.isWelcome = true;
+      store.save();
+      io.to(room.id).emit('youtube_updated', {
+        videoId: room.welcomeVideoId,
+        videoTitle: room.youtubeTitle,
+        startedAt: room.youtubeStartedAt,
+        startedBy: 'فيديو ترحيبي',
+        offset: 0,
+        status: 'play',
+        by: 'نظام الغرفة',
+        isWelcome: true
+      });
+    } else {
+      room.youtubeId = '';
+      room.youtubeTitle = '';
+      room.youtubeStartedAt = 0;
+      room.youtubeStartedBy = '';
+      room.isWelcome = false;
+      store.save();
+      io.to(room.id).emit('youtube_updated', {
+        videoId: '',
+        videoTitle: '',
+        startedAt: 0,
+        startedBy: '',
+        offset: 0,
+        status: 'ended',
+        by: 'system',
+        isWelcome: false
+      });
+      io.to(room.id).emit('system_message', {
+        roomId: room.id,
+        text: `🏁 اكتمل عرض الفيديو وتوقف المشغل بنجاح. أرسل /yt أو /q لتشغيل فيديو جديد 🎵`,
+        at: now()
+      });
+    }
+  }
+}
+
+// Proactive expiration monitor: runs every 15 seconds
+setInterval(() => {
+  try {
+    Object.values(store.state.rooms || {}).forEach(checkAndExpireRoomVideo);
+  } catch (e) {}
+}, 15000);
 
 io.on('connection', (socket) => {
   socket.data.userId = null;
@@ -261,6 +354,7 @@ io.on('connection', (socket) => {
     online.set(user.id, { socketId: socket.id, roomId: room.id });
     user.status = 'online';
 
+    checkAndExpireRoomVideo(room);
     const history = store.state.messages[room.id] || [];
     if (typeof cb === 'function') {
       cb({
@@ -275,6 +369,7 @@ io.on('connection', (socket) => {
           youtubeTitle: room.youtubeTitle || '',
           youtubeStartedAt: room.youtubeStartedAt || 0,
           youtubeStartedBy: room.youtubeStartedBy || '',
+          isWelcome: !!room.isWelcome,
           youtubeOffset: room.youtubeStartedAt ? Math.max(0, Math.floor((now() - room.youtubeStartedAt) / 1000)) : 0,
           youtubeQueue: room.youtubeQueue || []
         },
@@ -345,16 +440,20 @@ io.on('connection', (socket) => {
     const yt = filter.youtubeId(clean.text);
     if (yt) {
       room.youtubeId = yt;
-      room.youtubeTitle = 'فيديو من ' + user.name;
+      room.youtubeTitle = 'فيديو بواسطة ' + user.name;
       room.youtubeStartedAt = now();
+      room.youtubeStartedBy = user.name;
+      room.isWelcome = false;
       store.save();
       io.to(room.id).emit('youtube_updated', {
         videoId: yt,
         videoTitle: room.youtubeTitle,
         startedAt: room.youtubeStartedAt,
+        startedBy: user.name,
         offset: 0,
         status: 'play',
-        by: user.name
+        by: user.name,
+        isWelcome: false
       });
     }
   });
@@ -591,6 +690,7 @@ io.on('connection', (socket) => {
       if (videoTitle) room.youtubeTitle = videoTitle;
       room.youtubeStartedAt = now();
       room.youtubeStartedBy = user.name;
+      room.isWelcome = false;
       store.save();
     }
     io.to(p.roomId).emit('youtube_updated', {
@@ -600,7 +700,8 @@ io.on('connection', (socket) => {
       startedBy: user.name,
       offset: 0,
       status: status || 'play',
-      by: user.name
+      by: user.name,
+      isWelcome: false
     });
     if (typeof cb === 'function') cb({ ok: true });
   });
@@ -612,7 +713,7 @@ io.on('connection', (socket) => {
     const room = store.state.rooms[p.roomId];
     if (!room || !room.youtubeId) return;
 
-    // Advance queue or stop player cleanly
+    // Advance queue or fallback to welcome video or stop player cleanly
     const q = room.youtubeQueue || [];
     if (q.length > 0) {
       const nextItem = q.shift();
@@ -620,6 +721,7 @@ io.on('connection', (socket) => {
       room.youtubeTitle = nextItem.title || ('فيديو بواسطة ' + nextItem.by);
       room.youtubeStartedAt = now();
       room.youtubeStartedBy = nextItem.by;
+      room.isWelcome = false;
       store.save();
       io.to(room.id).emit('youtube_updated', {
         videoId: nextItem.videoId,
@@ -628,11 +730,34 @@ io.on('connection', (socket) => {
         startedBy: nextItem.by,
         offset: 0,
         status: 'play',
-        by: nextItem.by
+        by: nextItem.by,
+        isWelcome: false
       });
       io.to(room.id).emit('system_message', {
         roomId: room.id,
         text: `🎬 بدأ تلقائياً الفيديو التالي في قائمة الانتظار: ${room.youtubeTitle} (بواسطة ${nextItem.by}) 🎵`,
+        at: now()
+      });
+    } else if (room.welcomeVideoId) {
+      room.youtubeId = room.welcomeVideoId;
+      room.youtubeTitle = room.welcomeVideoTitle || ('فيديو ترحيبي - ' + room.title);
+      room.youtubeStartedAt = now();
+      room.youtubeStartedBy = 'فيديو ترحيبي';
+      room.isWelcome = true;
+      store.save();
+      io.to(room.id).emit('youtube_updated', {
+        videoId: room.welcomeVideoId,
+        videoTitle: room.youtubeTitle,
+        startedAt: room.youtubeStartedAt,
+        startedBy: 'فيديو ترحيبي',
+        offset: 0,
+        status: 'play',
+        by: 'نظام الغرفة',
+        isWelcome: true
+      });
+      io.to(room.id).emit('system_message', {
+        roomId: room.id,
+        text: `🎬 تم العودة للفيديو الترحيبي للغرفة 🌟`,
         at: now()
       });
     } else {
@@ -640,6 +765,7 @@ io.on('connection', (socket) => {
       room.youtubeTitle = '';
       room.youtubeStartedAt = 0;
       room.youtubeStartedBy = '';
+      room.isWelcome = false;
       store.save();
       io.to(room.id).emit('youtube_updated', {
         videoId: '',
@@ -648,7 +774,8 @@ io.on('connection', (socket) => {
         startedBy: '',
         offset: 0,
         status: 'ended',
-        by: 'system'
+        by: 'system',
+        isWelcome: false
       });
       io.to(room.id).emit('system_message', {
         roomId: room.id,

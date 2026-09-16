@@ -40,6 +40,7 @@ fun YouTubeInChatPlayer(
     videoId: String,
     videoTitle: String,
     startedBy: String = "",
+    isWelcome: Boolean = false,
     startSeconds: Int = 0,
     onClose: () -> Unit,
     onVideoEnded: (String) -> Unit = {},
@@ -47,12 +48,13 @@ fun YouTubeInChatPlayer(
 ) {
     var isMinimized by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val isWelcomeMode = isWelcome || startedBy == "فيديو ترحيبي" || startedBy == "ترحيب"
 
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp)
-            .border(1.dp, Color(0xFF334155), RoundedCornerShape(8.dp))
+            .border(1.dp, if (isWelcomeMode) Color(0xFF059669) else Color(0xFF334155), RoundedCornerShape(8.dp))
             .background(Color(0xFF0F172A), RoundedCornerShape(8.dp))
     ) {
         Row(
@@ -65,22 +67,31 @@ fun YouTubeInChatPlayer(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(4.dp))
-                    .background(Color(0xFFE50914))
+                    .background(if (isWelcomeMode) Color(0xFF10B981) else Color(0xFFE50914))
                     .padding(horizontal = 6.dp, vertical = 2.dp)
             ) {
-                Text("▶ يوتيوب", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(if (isWelcomeMode) "🎬 ترحيب" else "▶ يوتيوب", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = videoTitle.ifBlank { "مشغل يوتيوب الغرفة" },
+                    text = videoTitle.ifBlank { if (isWelcomeMode) "فيديو ترحيبي بالغرفة" else "مشغل يوتيوب الغرفة" },
                     color = Color.White,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
-                if (startedBy.isNotBlank()) {
+                if (isWelcomeMode) {
+                    Text(
+                        text = "✨ فيديو ترحيبي رسمي للغرفة 🌟",
+                        color = Color(0xFF34D399),
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                } else if (startedBy.isNotBlank()) {
                     Text(
                         text = "بواسطة: $startedBy 👤",
                         color = Color(0xFF38BDF8),

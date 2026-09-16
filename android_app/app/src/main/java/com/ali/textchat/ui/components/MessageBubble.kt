@@ -55,7 +55,7 @@ fun MessageBubble(
     val context = LocalContext.current
     val loader = remember { svgCapableLoader(context) }
     val skin = skinFor(message.senderRank)
-    val avatarShape = RoundedCornerShape(10.dp)
+    val avatarShape = RoundedCornerShape(14.dp)
 
     Row(
         modifier = modifier
@@ -63,18 +63,18 @@ fun MessageBubble(
             .padding(start = 6.dp, end = 10.dp, top = 2.dp, bottom = 2.dp),
         verticalAlignment = Alignment.Top
     ) {
-        // Compact rounded-square avatar (42dp)
+        // Large rounded-square avatar on the right, like iqchat.top (~60dp)
         Box(
             modifier = Modifier
-                .size(42.dp)
-                .border(1.5.dp, skin.border.copy(alpha = 0.85f), avatarShape)
-                .padding(1.dp)
+                .size(60.dp)
+                .border(2.dp, skin.border.copy(alpha = 0.9f), avatarShape)
+                .padding(2.dp)
                 .clip(avatarShape)
                 .background(Color(colorForName(message.senderName)))
                 .clickable { onUserMention(message.senderName) },
             contentAlignment = Alignment.Center
         ) {
-            Text(message.senderName.trim().take(1), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text(message.senderName.trim().take(1), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 22.sp)
             if (message.senderAvatar.isNotBlank()) {
                 AsyncImage(
                     model = message.senderAvatar,
@@ -87,14 +87,16 @@ fun MessageBubble(
 
         Spacer(Modifier.width(8.dp))
 
-        // Dynamic compact message card hugging content
+        // Full-width message block like iqchat.top (fills the row beside the avatar)
         Column(
             modifier = Modifier
-                .weight(1f, fill = false)
-                .clip(RoundedCornerShape(8.dp))
+                .weight(1f)
+                .heightIn(min = 60.dp)
+                .clip(RoundedCornerShape(12.dp))
                 .clickable { onUserMention(message.senderName) }
                 .background(skin.fill)
-                .padding(horizontal = 9.dp, vertical = 5.dp)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically

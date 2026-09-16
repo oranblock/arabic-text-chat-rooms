@@ -52,6 +52,8 @@ class ChatSocket(
     val youtubeBy: StateFlow<String?> = _youtubeBy
     private val _youtubeOffset = MutableStateFlow<Int>(0)
     val youtubeOffset: StateFlow<Int> = _youtubeOffset
+    private val _youtubeIsWelcome = MutableStateFlow<Boolean>(false)
+    val youtubeIsWelcome: StateFlow<Boolean> = _youtubeIsWelcome
     private val _notifications = MutableStateFlow<List<String>>(emptyList())
     val notifications: StateFlow<List<String>> = _notifications
     private val _threads = MutableStateFlow<List<PmThread>>(emptyList())
@@ -119,6 +121,7 @@ class ChatSocket(
                     val vBy = obj.optString("startedBy").ifBlank { obj.optString("by") }
                     _youtubeBy.value = if (vBy.isNotBlank() && vBy != "system") vBy else null
                     _youtubeOffset.value = obj.optInt("offset", 0)
+                    _youtubeIsWelcome.value = obj.optBoolean("isWelcome", false) || (vBy == "فيديو ترحيبي")
                 }
             }
             s.on("force_disconnect") { a ->
@@ -173,6 +176,7 @@ class ChatSocket(
                 val yBy = r.optString("youtubeStartedBy").ifBlank { r.optString("by") }
                 _youtubeBy.value = if (yBy.isNotBlank() && yBy != "system") yBy else null
                 _youtubeOffset.value = r.optInt("youtubeOffset", 0)
+                _youtubeIsWelcome.value = r.optBoolean("isWelcome", false) || (yBy == "فيديو ترحيبي")
             }
             o.optJSONObject("me")?.let { _me.value = parseUser(it) }
             o.optJSONArray("messages")?.let { _messages.value = parseMessages(it) }

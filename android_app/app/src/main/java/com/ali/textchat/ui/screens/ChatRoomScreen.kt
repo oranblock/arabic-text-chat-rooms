@@ -16,7 +16,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Send as SendIcon
 import androidx.compose.material.icons.filled.*
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -43,6 +47,7 @@ import kotlinx.coroutines.launch
 
 private fun isStaff(rank: UserRank?) = rank == UserRank.OWNER || rank == UserRank.MODERATOR
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -59,6 +64,7 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
     val ytTitle by socket.youtubeTitle.collectAsState()
     val ytBy by socket.youtubeBy.collectAsState()
     val ytOffset by socket.youtubeOffset.collectAsState()
+    val ytIsWelcome by socket.youtubeIsWelcome.collectAsState()
     val notifications by socket.notifications.collectAsState()
     val threads by socket.threads.collectAsState()
     val requests by socket.requests.collectAsState()
@@ -78,6 +84,7 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
     var showInbox by remember { mutableStateOf(false) }
     var showRequests by remember { mutableStateOf(false) }
     var showAdminPanel by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
 
     LaunchedEffect(ytId) { if (!ytId.isNullOrBlank()) ytVisible = true }
     val listState = rememberLazyListState()
@@ -100,47 +107,40 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
         }
     ) {
         Column(Modifier.fillMaxSize().background(BcBody)) {
+            // Top bar — white with magenta round buttons, exactly like iqchat.top
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Brush.horizontalGradient(listOf(BcHeaderStart, BcHeaderEnd)))
+                    .background(Color.White)
                     .statusBarsPadding()
-                    .height(54.dp)
-                    .padding(horizontal = 6.dp),
+                    .height(58.dp)
+                    .padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable { showRooms = true; socket.listRooms() }.padding(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.Home, null, tint = Color.White, modifier = Modifier.size(22.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Column {
-                        Text("🇮🇶 " + (room?.title ?: "ديوانية العراق"), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Text("${users.size} متصل", color = Color(0xFFC7D8FF), fontSize = 10.sp)
-                    }
+                RoundBtn(Icons.Default.Share) { }
+                Spacer(Modifier.width(6.dp))
+                RoundBtn(Icons.Default.Star) { }
+                Spacer(Modifier.weight(1f))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(room?.title ?: "ديوانية العراق", color = BcAccent, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text("${users.size} متصل", color = Color(0xFF9E9E9E), fontSize = 10.sp)
                 }
                 Spacer(Modifier.weight(1f))
-                if (isStaff(me?.rank)) {
-                    HeadOption(Icons.Default.Security, 0) { showAdminPanel = true }
-                }
-                HeadOption(Icons.Default.Notifications, notifications.size) { showNotifs = true }
-                HeadOption(Icons.Default.Email, 0) { socket.loadThreads(); showInbox = true }
-                HeadOption(Icons.Default.PersonAdd, requests.size) { socket.loadRequests(); showRequests = true }
-                HeadOption(Icons.Default.AccountCircle, 0) { showProfile = true }
-                HeadOption(Icons.Default.People, users.size) { scope.launch { drawerState.open() } }
+                Text("🇮🇶", fontSize = 22.sp)
+                Spacer(Modifier.width(6.dp))
+                RoundBtn(Icons.Default.People, badge = users.size) { scope.launch { drawerState.open() } }
             }
 
             val currentTopic = room?.topic?.takeIf { it.isNotBlank() }
             if (currentTopic != null || !ytId.isNullOrBlank()) {
                 Row(
-                    Modifier.fillMaxWidth().background(Color(0xFFDCE6FF)).padding(horizontal = 12.dp, vertical = 4.dp),
+                    Modifier.fillMaxWidth().background(Color(0xFFF7E4FC)).padding(horizontal = 12.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (currentTopic != null) {
-                        Icon(Icons.Default.Campaign, null, tint = Color(0xFF0A1E4D), modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Campaign, null, tint = Color(0xFF5B1080), modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text(currentTopic, color = Color(0xFF0A1E4D), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.weight(1f))
+                        Text(currentTopic, color = Color(0xFF5B1080), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.weight(1f))
                     } else {
                         Spacer(Modifier.weight(1f))
                     }
@@ -148,22 +148,29 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
                         Row(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(if (ytVisible) Color(0xFFE50914) else Color(0xFF1E293B))
+                                .background(if (ytIsWelcome) Color(0xFF10B981) else (if (ytVisible) Color(0xFFE50914) else Color(0xFF1E293B)))
                                 .clickable { ytVisible = !ytVisible }
                                 .padding(horizontal = 6.dp, vertical = 3.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(if (ytVisible) "📺 إخفاء" else "▶ يوتيوب", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = if (!ytVisible) (if (ytIsWelcome) "🎬 ترحيب" else "▶ يوتيوب") else "📺 إخفاء",
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
             }
-            Column(Modifier.weight(1f).fillMaxWidth().background(BcChatBackground)) {
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+            Column(Modifier.fillMaxSize().background(BcChatBackground)) {
                 if (ytVisible && !ytId.isNullOrBlank()) {
                     YouTubeInChatPlayer(
                         videoId = ytId ?: "",
-                        videoTitle = ytTitle ?: "يوتيوب مشترك في الغرفة",
+                        videoTitle = ytTitle ?: if (ytIsWelcome) "فيديو ترحيبي بالغرفة" else "يوتيوب مشترك في الغرفة",
                         startedBy = ytBy ?: "",
+                        isWelcome = ytIsWelcome,
                         startSeconds = ytOffset,
                         onClose = { ytVisible = false },
                         onVideoEnded = { finishedId ->
@@ -176,9 +183,22 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
                     Text(error!!, color = Color(0xFFA94442), fontSize = 12.sp,
                         modifier = Modifier.fillMaxWidth().background(Color(0xFFF2DEDE)).padding(8.dp))
                 }
-                LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 6.dp)) {
+                LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = 6.dp, start = 4.dp, end = 64.dp)) {
                     items(messages) { msg -> MessageBubble(message = msg, onUserMention = { name -> input = "@$name: $input" }) }
                 }
+            }
+            // Floating magenta head buttons (left edge) + rooms pill (right), over the chat — exact iqchat.top
+            Column(Modifier.align(Alignment.TopStart).padding(6.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
+                HeadOption(Icons.Default.AccountCircle, 0) { showProfile = true }
+                HeadOption(Icons.Default.Email, 0) { socket.loadThreads(); showInbox = true }
+                HeadOption(Icons.Default.Notifications, notifications.size) { showNotifs = true }
+                HeadOption(Icons.Default.Article, 0) { socket.loadThreads(); showInbox = true }
+                HeadOption(Icons.Default.PersonAdd, requests.size) { socket.loadRequests(); showRequests = true }
+                if (isStaff(me?.rank)) HeadOption(Icons.Default.Security, 0) { showAdminPanel = true }
+            }
+            Box(Modifier.align(Alignment.TopEnd).padding(6.dp)) {
+                HeadPill(Icons.Default.Home, "قائمة الرومات") { showRooms = true; socket.listRooms() }
+            }
             }
 
             Box(Modifier.fillMaxWidth().height(2.dp).background(BcAccent))
@@ -189,25 +209,33 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
                     .padding(horizontal = 6.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { showEmoji = !showEmoji }, modifier = Modifier.size(38.dp)) {
-                    Icon(Icons.Default.SentimentSatisfied, "إيموجي", tint = BcAccent)
-                }
+                // Round magenta send (paper plane), like iqchat.top
                 Box(
-                    modifier = Modifier.weight(1f).height(40.dp).background(BcInputFill, RoundedCornerShape(3.dp))
-                        .border(1.dp, BcInputBorder, RoundedCornerShape(3.dp)).padding(horizontal = 10.dp),
+                    modifier = Modifier.size(44.dp).clip(CircleShape).background(BcAccent).clickable {
+                        if (input.isNotBlank()) { socket.sendMessage(input.trim()); input = "" }
+                    },
+                    contentAlignment = Alignment.Center
+                ) { Icon(Icons.AutoMirrored.Filled.Send, "إرسال", tint = Color.White, modifier = Modifier.size(20.dp)) }
+                Spacer(Modifier.width(6.dp))
+                Box(Modifier.size(40.dp).clip(CircleShape).clickable { showEmoji = !showEmoji }, contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.SentimentSatisfied, "إيموجي", tint = BcAccent, modifier = Modifier.size(26.dp))
+                }
+                Box(Modifier.size(40.dp).clip(CircleShape).clickable { }, contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Add, "ملف", tint = BcAccent, modifier = Modifier.size(26.dp))
+                }
+                Spacer(Modifier.width(6.dp))
+                Box(
+                    modifier = Modifier.weight(1f).height(40.dp)
+                        .drawBehind {
+                            drawLine(BcAccent, androidx.compose.ui.geometry.Offset(0f, size.height - 2f),
+                                androidx.compose.ui.geometry.Offset(size.width, size.height - 2f), strokeWidth = 3f)
+                        }.padding(horizontal = 6.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     if (input.isEmpty()) Text("اكتب رسالتك...", color = Color(0xFF9E9E9E), fontSize = 14.sp)
                     BasicTextField(input, { input = it }, singleLine = true,
                         textStyle = TextStyle(color = Color(0xFF181818), fontSize = 14.sp), modifier = Modifier.fillMaxWidth())
                 }
-                Spacer(Modifier.width(6.dp))
-                Box(
-                    modifier = Modifier.size(48.dp, 40.dp).background(BcAccent, RoundedCornerShape(3.dp)).clickable {
-                        if (input.isNotBlank()) { socket.sendMessage(input.trim()); input = "" }
-                    },
-                    contentAlignment = Alignment.Center
-                ) { Icon(Icons.AutoMirrored.Filled.Send, "إرسال", tint = Color.White, modifier = Modifier.size(20.dp)) }
             }
         }
     }
@@ -251,14 +279,40 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
     privTarget?.let { t -> PrivateChatDialog(socket, t, onDismiss = { privTarget = null }) }
 }
 
+// Magenta round floating button (iqchat head-option style)
 @Composable
 private fun HeadOption(icon: ImageVector, count: Int, onClick: () -> Unit) {
-    Box(Modifier.size(42.dp).clickable { onClick() }, contentAlignment = Alignment.Center) {
-        Icon(icon, null, tint = Color.White, modifier = Modifier.size(22.dp))
+    Box(Modifier.size(52.dp).clip(CircleShape).background(BcAccent).clickable { onClick() }, contentAlignment = Alignment.Center) {
+        Icon(icon, null, tint = Color.White, modifier = Modifier.size(26.dp))
         if (count > 0) Box(
-            Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 2.dp).size(16.dp).background(BcNotify, CircleShape),
+            Modifier.align(Alignment.TopEnd).padding(2.dp).size(18.dp).background(BcNotify, CircleShape).border(1.5.dp, Color.White, CircleShape),
             contentAlignment = Alignment.Center
         ) { Text(if (count > 99) "99" else "$count", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+    }
+}
+
+// Smaller magenta round button for the top bar (share / star / menu)
+@Composable
+private fun RoundBtn(icon: ImageVector, badge: Int = 0, onClick: () -> Unit) {
+    Box(Modifier.size(44.dp).clip(CircleShape).background(BcAccent).clickable { onClick() }, contentAlignment = Alignment.Center) {
+        Icon(icon, null, tint = Color.White, modifier = Modifier.size(22.dp))
+        if (badge > 0) Box(
+            Modifier.align(Alignment.TopEnd).size(16.dp).background(BcNotify, CircleShape).border(1.5.dp, Color.White, CircleShape),
+            contentAlignment = Alignment.Center
+        ) { Text(if (badge > 99) "99" else "$badge", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold) }
+    }
+}
+
+// Magenta rounded pill with icon + label (the "قائمة الرومات" home tab)
+@Composable
+private fun HeadPill(icon: ImageVector, label: String, onClick: () -> Unit) {
+    Row(
+        Modifier.clip(RoundedCornerShape(14.dp)).background(BcAccent).clickable { onClick() }.padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, null, tint = Color.White, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(label, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
 }
 
