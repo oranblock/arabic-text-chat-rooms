@@ -125,15 +125,15 @@
       <div id="login-err" style="color: var(--red); font-size: 12px; margin-bottom: 12px; display: none;"></div>
       <div class="form-group">
         <label>اسم المشرف / المدير</label>
-        <input type="text" id="login-name" value="ali" placeholder="مثال: ali أو علي">
+        <input type="text" id="login-name" value="علي" placeholder="مثال: ali أو علي">
       </div>
       <div class="form-group">
         <label>كلمة المرور</label>
-        <input type="password" id="login-pass" value="demo123" placeholder="كلمة المرور">
+        <input type="password" id="login-pass" value="123456" placeholder="كلمة المرور">
       </div>
       <button class="btn" style="width: 100%; justify-content: center; padding: 12px;" onclick="handleLogin()">تسجيل الدخول 🚀</button>
       <div style="margin-top: 14px; font-size: 11px; color: var(--text-muted);">
-        الحساب الافتراضي للمالك: <b>ali</b> / <b>demo123</b>
+        الحساب الافتراضي للمالك: <b>علي</b> / <b>123456</b>
       </div>
     </div>
   </div>
@@ -265,6 +265,45 @@
       <div class="section-header">
         <div class="section-title">🚪 التحكم بالغرف والشات الجماعي</div>
       </div>
+
+      <!-- Create Room Section -->
+      <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+        <div style="font-weight: 700; font-size: 14px; margin-bottom: 12px; color: var(--accent); display: flex; align-items: center; gap: 8px;">
+          <span>➕ إنشاء غرفة دردشة جديدة وتخصيص صلاحياتها</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px;">
+          <div>
+            <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">اسم الغرفة (مثال: سهرات بغداد، ملتقى الشباب):</label>
+            <input type="text" id="new-room-title" placeholder="اكتب اسم الغرفة بالعربي..." style="width: 100%; font-size: 13px; padding: 8px 10px;">
+          </div>
+          <div>
+            <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">معرّف الغرفة بالإنجليزية (Slug):</label>
+            <input type="text" id="new-room-id" placeholder="مثال: baghdad_night (اختياري)" style="width: 100%; font-size: 13px; padding: 8px 10px;">
+          </div>
+          <div>
+            <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">الصلاحية والرتبة المطلوبة للدخول:</label>
+            <select id="new-room-rank" style="width: 100%; font-size: 13px; padding: 8px 10px;">
+              <option value="REGULAR">🌐 الجميع (الزوار والأعضاء العاديين)</option>
+              <option value="MEMBER">✅ الأعضاء المفعلين فما فوق</option>
+              <option value="VIP">⭐ الأعضاء المميزين (VIP) فما فوق</option>
+              <option value="MODERATOR">🛡️ طاقم المراقبين والمشرفين فقط</option>
+              <option value="OWNER">👑 الإدارة العليا والمالك فقط</option>
+            </select>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+          <div>
+            <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">وصف الغرفة:</label>
+            <input type="text" id="new-room-desc" placeholder="وصف قصير يظهر في قائمة الغرف" style="width: 100%; font-size: 13px; padding: 8px 10px;">
+          </div>
+          <div>
+            <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">إعلان / توبيك الغرفة (Topic):</label>
+            <input type="text" id="new-room-topic" placeholder="إعلان ترحيبي يظهر أعلى الشات" style="width: 100%; font-size: 13px; padding: 8px 10px;">
+          </div>
+        </div>
+        <button class="btn" style="padding: 9px 20px; font-size: 13px;" onclick="createRoom()">➕ حفظ وإنشاء الغرفة فوراً</button>
+      </div>
+
       <div class="rooms-grid" id="rooms-container">
         <!-- Populated via JS -->
       </div>
@@ -713,13 +752,30 @@
     function renderRooms() {
       if (!state.data) return;
       const container = document.getElementById('rooms-container');
-      container.innerHTML = state.data.rooms.map(r => `
+      const rankLabels = {
+        'OWNER': { text: '👑 إدارة عليا', cls: 'badge-owner' },
+        'MODERATOR': { text: '🛡️ مراقبين', cls: 'badge-mod' },
+        'VIP': { text: '⭐ مميزين', cls: 'badge-vip' },
+        'MEMBER': { text: '✅ أعضاء', cls: 'badge-reg' },
+        'REGULAR': { text: '🌐 عامة للجميع', cls: 'badge-guest' }
+      };
+
+      container.innerHTML = state.data.rooms.map(r => {
+        const rankInfo = rankLabels[r.requiredRank] || rankLabels['REGULAR'];
+        const isDefault = r.id === 'iraq';
+        return `
         <div class="room-card">
           <div class="room-head">
             <h3 style="font-size: 16px; font-weight: 800;">🇮🇶 ${r.title}</h3>
-            <span class="badge badge-reg">${r.online} متصل</span>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <span class="badge ${rankInfo.cls}">${rankInfo.text}</span>
+              <span class="badge badge-reg">${r.online} متصل</span>
+            </div>
           </div>
-          <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">معرف: ${r.id}</div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <span>معرف: <code>${r.id}</code></span>
+            ${!isDefault ? `<button class="btn btn-danger" style="padding: 3px 8px; font-size: 10px;" onclick="deleteRoom('${r.id}', '${r.title.replace(/'/g, "\\'")}')">🗑️ حذف الغرفة</button>` : '<span style="font-size: 11px; color: #10b981; font-weight: 700;">(الروم الافتراضي)</span>'}
+          </div>
           <div style="display: flex; flex-direction: column; gap: 10px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <span style="font-size: 13px;">قفل الشات العام:</span>
@@ -751,7 +807,58 @@
             </div>
           </div>
         </div>
-      `).join('');
+      `;}).join('');
+    }
+
+    async function createRoom() {
+      const title = (document.getElementById('new-room-title').value || '').trim();
+      const id = (document.getElementById('new-room-id').value || '').trim();
+      const desc = (document.getElementById('new-room-desc').value || '').trim();
+      const topic = (document.getElementById('new-room-topic').value || '').trim();
+      const requiredRank = document.getElementById('new-room-rank').value;
+
+      if (!title) return alert('يرجى كتابة اسم الغرفة');
+
+      try {
+        const res = await fetch('/api/admin/rooms/create', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ id, title, description: desc, topic, requiredRank })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          document.getElementById('new-room-title').value = '';
+          document.getElementById('new-room-id').value = '';
+          document.getElementById('new-room-desc').value = '';
+          document.getElementById('new-room-topic').value = '';
+          fetchData();
+          alert('تم إنشاء الغرفة بنجاح! 🚪✨');
+        } else {
+          alert(data.error || 'فشل إنشاء الغرفة');
+        }
+      } catch (e) {
+        alert('حدث خطأ أثناء الاتصال بالسيرفر');
+      }
+    }
+
+    async function deleteRoom(roomId, title) {
+      if (!confirm(`هل أنت متأكد من رغبتك في حذف الغرفة "${title}"؟\nسيتم إغلاق الغرفة ونقل أي أعضاء متصلين فيها إلى الغرفة الرئيسية.`)) return;
+
+      try {
+        const res = await fetch('/api/admin/rooms/delete', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ roomId })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          fetchData();
+        } else {
+          alert(data.error || 'فشل حذف الغرفة');
+        }
+      } catch (e) {
+        alert('حدث خطأ أثناء الاتصال بالسيرفر');
+      }
     }
 
     async function toggleRoomLock(roomId, what, value) {

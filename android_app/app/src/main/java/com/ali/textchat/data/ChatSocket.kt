@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.StateFlow
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
  * Full client for server.js: auth (register/login with token), room join,
@@ -192,8 +194,65 @@ class ChatSocket(
         })
     }
 
-    fun sendMessage(text: String) = socket?.emit("send_message", JSONObject().apply { put("text", text) })
-    fun sendPrivate(toUserId: String, text: String) = socket?.emit("private_send", JSONObject().apply { put("toUserId", toUserId); put("text", text) })
+    fun sendMessage(text: String, mediaType: String? = null, mediaUrl: String? = null, audioDuration: Int? = null) {
+        socket?.emit("send_message", JSONObject().apply {
+            put("text", text)
+            if (mediaType != null) put("mediaType", mediaType)
+            if (mediaUrl != null) put("mediaUrl", mediaUrl)
+            if (audioDuration != null) put("audioDuration", audioDuration)
+        })
+    }
+
+    fun sendPrivate(toUserId: String, text: String, mediaType: String? = null, mediaUrl: String? = null, audioDuration: Int? = null) {
+        socket?.emit("private_send", JSONObject().apply {
+            put("toUserId", toUserId)
+            put("text", text)
+            if (mediaType != null) put("mediaType", mediaType)
+            if (mediaUrl != null) put("mediaUrl", mediaUrl)
+            if (audioDuration != null) put("audioDuration", audioDuration)
+        })
+    }
+
+    fun uploadMedia(
+        base64Data: String,
+        type: String,
+        filename: String,
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        Thread {
+            try {
+                val client = okhttp3.OkHttpClient.Builder()
+                    .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                    .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                    .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                    .build()
+
+                val jsonBody = JSONObject().apply {
+                    put("data", base64Data)
+                    put("type", type)
+                    put("filename", filename)
+                }.toString()
+
+                val mediaTypeJson = "application/json; charset=utf-8".toMediaType()
+                val reqBody = jsonBody.toRequestBody(mediaTypeJson)
+                val req = okhttp3.Request.Builder()
+                    .url("${AppConfig.SERVER_URL}/api/upload")
+                    .post(reqBody)
+                    .build()
+
+                val response = client.newCall(req).execute()
+                val bodyStr = response.body?.string() ?: ""
+                val o = JSONObject(bodyStr)
+                if (o.optBoolean("ok")) {
+                    onResult(true, o.optString("url"))
+                } else {
+                    onResult(false, o.optString("error", "فشل الرفع"))
+                }
+            } catch (e: Exception) {
+                onResult(false, e.message)
+            }
+        }.start()
+    }
     fun loadPrivateHistory(withUserId: String) {
         socket?.emit("private_history", JSONObject().apply { put("withUserId", withUserId) }, Ack { res ->
             (res.firstOrNull() as? JSONObject)?.optJSONArray("messages")?.let { _privates.value = parseMessages(it) }
@@ -352,19 +411,27 @@ class ChatSocket(
 
     private fun parseUsers(a: JSONArray) = (0 until a.length()).map { parseUser(a.getJSONObject(it)) }
 
-    private fun parseMessage(o: JSONObject) = ChatMessage(
-        id = o.optString("id"),
-        roomId = o.optString("roomId"),
-        senderId = o.optString("senderId"),
-        senderName = o.optString("senderName"),
-        senderAvatar = o.optString("senderAvatar"),
-        senderRank = runCatching { UserRank.valueOf(o.optString("senderRank", "REGULAR")) }.getOrDefault(UserRank.REGULAR),
-        customHexColor = o.optString("customHexColor").takeIf { it.isNotBlank() && it != "null" },
-        text = o.optString("text"),
-        timestamp = o.optString("timestamp"),
-        isGhost = o.optBoolean("isGhost"),
-        senderGender = o.optString("senderGender")
-    )
+    private fun parseMessage(o: JSONObject): ChatMessage {
+        val mType = o.optString("mediaType").takeIf { it.isNotBlank() && it != "null" }
+        val mUrl = o.optString("mediaUrl").takeIf { it.isNotBlank() && it != "null" }
+        val aDur = o.optInt("audioDuration").takeIf { it > 0 }
+        return ChatMessage(
+            id = o.optString("id"),
+            roomId = o.optString("roomId"),
+            senderId = o.optString("senderId"),
+            senderName = o.optString("senderName"),
+            senderAvatar = o.optString("senderAvatar"),
+            senderRank = runCatching { UserRank.valueOf(o.optString("senderRank", "REGULAR")) }.getOrDefault(UserRank.REGULAR),
+            customHexColor = o.optString("customHexColor").takeIf { it.isNotBlank() && it != "null" },
+            text = o.optString("text"),
+            timestamp = o.optString("timestamp"),
+            isGhost = o.optBoolean("isGhost"),
+            senderGender = o.optString("senderGender"),
+            mediaType = mType,
+            mediaUrl = mUrl,
+            audioDuration = aDur
+        )
+    }
 
     private fun parseMessages(a: JSONArray) = (0 until a.length()).map { parseMessage(a.getJSONObject(it)) }
 
@@ -372,7 +439,8 @@ class ChatSocket(
         val o = a.getJSONObject(it)
         ChatRoom(
             id = o.optString("id"), title = o.optString("title"), description = o.optString("description"),
-            topic = o.optString("topic"), onlineCount = o.optInt("online"), isLocked = o.optBoolean("lockPublic")
+            topic = o.optString("topic"), onlineCount = o.optInt("online"), isLocked = o.optBoolean("lockPublic"),
+            requiredRank = o.optString("requiredRank", "REGULAR")
         )
     }
 }

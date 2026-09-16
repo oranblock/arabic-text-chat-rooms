@@ -44,7 +44,9 @@ fun OnlineUsersDrawer(
 ) {
     var query by remember { mutableStateOf("") }
     val shown = users.filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }
-    val premium = shown.filter { it.rank == UserRank.VIP_DIAMOND || it.rank == UserRank.OWNER || it.rank == UserRank.MODERATOR }
+    val owners = shown.filter { it.rank == UserRank.OWNER }
+    val admins = shown.filter { it.rank == UserRank.MODERATOR }
+    val premium = shown.filter { it.rank == UserRank.VIP_DIAMOND }
     val interactive = shown.filter { it.rank == UserRank.REGULAR && !it.isMuted }
     val bots = shown.filter { it.rank == UserRank.BOT }
     val muted = shown.filter { it.isMuted }
@@ -79,11 +81,15 @@ fun OnlineUsersDrawer(
             }
         }
         LazyColumn(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
-            item { GroupHeader("الأعضاء المتفاعلين", interactive.size) }
-            interactive.forEach { u -> item { UserItem(u, onUserClick) } }
+            item { GroupHeader("مدراء التطبيق", owners.size) }
+            owners.forEach { u -> item { UserItem(u, onUserClick) } }
+            item { GroupHeader("أداريين التطبيق", admins.size) }
+            admins.forEach { u -> item { UserItem(u, onUserClick) } }
             item { GroupHeader("الأعضاء المميزين", premium.size) }
             premium.forEach { u -> item { UserItem(u, onUserClick) } }
-            item { GroupHeader("الأعضاء المتصلين", users.size - muted.size) }
+            item { GroupHeader("الأعضاء المتفاعلين", interactive.size) }
+            interactive.forEach { u -> item { UserItem(u, onUserClick) } }
+            item { GroupHeader("الأعضاء المتصلين", bots.size) }
             bots.forEach { u -> item { UserItem(u, onUserClick) } }
             item { GroupHeader("غير متصل", muted.size) }
             muted.forEach { u -> item { UserItem(u, onUserClick, offline = true) } }

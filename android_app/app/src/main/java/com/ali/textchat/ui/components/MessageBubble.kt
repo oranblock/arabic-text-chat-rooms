@@ -8,10 +8,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
+import com.ali.textchat.data.AppConfig
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -178,10 +181,110 @@ fun MessageBubble(
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 )
             } else {
-                // Ghost/shadowban is silent: the target sees their own message as normal,
-                // no marker, so they never realise they are muted for everyone else.
-                EmoticonText(text = message.text, color = skin.text)
+                // Media handling (Image or Audio voice notes)
+                if (message.mediaType == "image" && !message.mediaUrl.isNullOrBlank()) {
+                    val fullUrl = if (message.mediaUrl.startsWith("http")) message.mediaUrl else "${AppConfig.SERVER_URL}${message.mediaUrl}"
+                    val context = LocalContext.current
+                    val loader = remember { gifCapableLoader(context) }
+                    AsyncImage(
+                        model = fullUrl,
+                        imageLoader = loader,
+                        contentDescription = "صورة",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 240.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                    )
+                    if (message.text.isNotBlank() && message.text != "📷 صورة" && message.text != "📷 صورة خاصة") {
+                        Spacer(Modifier.height(4.dp))
+                        EmoticonText(text = message.text, color = skin.text)
+                    }
+                } else if (message.mediaType == "audio" && !message.mediaUrl.isNullOrBlank()) {
+                    val fullUrl = if (message.mediaUrl.startsWith("http")) message.mediaUrl else "${AppConfig.SERVER_URL}${message.mediaUrl}"
+                    AudioBubblePlayer(
+                        audioUrl = fullUrl,
+                        durationSec = message.audioDuration ?: 0,
+                        textColor = skin.text
+                    )
+                } else {
+                    EmoticonText(text = message.text, color = skin.text)
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun AudioBubblePlayer(audioUrl: String, durationSec: Int, textColor: Color) {
+    var isPlaying by remember { mutableStateOf(false) }
+    var player by remember { mutableStateOf<android.media.MediaPlayer?>(null) }
+
+    DisposableEffect(audioUrl) {
+        onDispose {
+            player?.release()
+            player = null
+        }
+    }
+
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0x18000000))
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(
+            onClick = {
+                if (isPlaying) {
+                    player?.pause()
+                    isPlaying = false
+                } else {
+                    if (player == null) {
+                        try {
+                            val mp = android.media.MediaPlayer().apply {
+                                setDataSource(audioUrl)
+                                prepareAsync()
+                                setOnPreparedListener {
+                                    start()
+                                    isPlaying = true
+                                }
+                                setOnCompletionListener {
+                                    isPlaying = false
+                                }
+                                setOnErrorListener { _, _, _ ->
+                                    isPlaying = false
+                                    true
+                                }
+                            }
+                            player = mp
+                        } catch (e: Exception) {
+                            isPlaying = false
+                        }
+                    } else {
+                        player?.start()
+                        isPlaying = true
+                    }
+                }
+            },
+            modifier = Modifier.size(36.dp)
+        ) {
+            Icon(
+                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                contentDescription = if (isPlaying) "إيقاف" else "تشغيل",
+                tint = textColor,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        Spacer(Modifier.width(6.dp))
+        Column {
+            Text(
+                text = if (isPlaying) "▶ جاري الاستماع..." else "🎤 تسجيل صوتي",
+                color = textColor,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+            val durText = if (durationSec > 0) "${durationSec} ثانية" else "صوت"
+            Text(text = durText, color = textColor.copy(alpha = 0.7f), fontSize = 10.sp)
         }
     }
 }

@@ -41,7 +41,10 @@ data class ChatMessage(
     val text: String,
     val timestamp: String,
     val isGhost: Boolean = false,
-    val senderGender: String = ""
+    val senderGender: String = "",
+    val mediaType: String? = null,
+    val mediaUrl: String? = null,
+    val audioDuration: Int? = null
 )
 
 /** A private-message inbox entry (someone this user has a thread with). */
@@ -61,5 +64,6 @@ data class ChatRoom(
     val topic: String = "",
     val onlineCount: Int = 0,
     val isLocked: Boolean = false,
-    val currentYoutubeUrl: String? = null
+    val currentYoutubeUrl: String? = null,
+    val requiredRank: String = "REGULAR"
 )

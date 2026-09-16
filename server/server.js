@@ -5,6 +5,7 @@
  * accounts, ranks, anti-spam, auto-mute, moderation, filter, ghost mode,
  * strict device ban, in-chat YouTube sync, permanent logs.
  */
+const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const http = require('http');
@@ -21,6 +22,7 @@ const { createAdminRouter, handleAdminCommand } = require('./lib/admin_api');
 const app = express();
 app.set('trust proxy', true);
 app.use(cors());
+app.use('/api/upload', express.json({ limit: '10mb' }));
 app.use(express.json({ limit: '64kb' }));
 app.use(express.urlencoded({ extended: true, limit: '64kb' }));
 const server = http.createServer(app);
@@ -116,6 +118,8 @@ function roomsSummary() {
   return Object.values(store.state.rooms).map(r => ({
     id: r.id, title: r.title, description: r.description, topic: r.topic || '',
     lockPublic: !!r.lockPublic, lockPrivate: !!r.lockPrivate,
+    requiredRank: r.requiredRank || 'REGULAR',
+    supervisorId: r.supervisorId || null,
     online: roomUsers(r.id).length
   }));
 }
@@ -166,6 +170,38 @@ setInterval(() => {
   }
   if (changed) store.flush();
 }, 60 * 1000);
+
+// Serve uploaded media (images & voice notes)
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+
+// Media Upload API (Base64 JSON for Images & Voice Notes)
+app.post('/api/upload', (req, res) => {
+  const { data, filename, type } = req.body || {};
+  if (!data || typeof data !== 'string') {
+    return res.status(400).json({ ok: false, error: 'بيانات الملف مفقودة' });
+  }
+  if (data.length > 8 * 1024 * 1024) {
+    return res.status(413).json({ ok: false, error: 'حجم الملف كبير جداً (الحد الأقصى 5 ميجابايت)' });
+  }
+
+  const mediaType = type === 'audio' ? 'audio' : 'image';
+  const ext = mediaType === 'audio' ? '.m4a' : (filename && path.extname(filename).toLowerCase()) || '.jpg';
+  const allowedExts = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.m4a', '.aac', '.mp3', '.wav', '.ogg'];
+  const safeExt = allowedExts.includes(ext) ? ext : (mediaType === 'audio' ? '.m4a' : '.jpg');
+
+  const base64Data = data.replace(/^data:[^;]+;base64,/, '');
+  const buffer = Buffer.from(base64Data, 'base64');
+  const uniqueName = `media_${Date.now()}_${Math.random().toString(36).substring(2, 8)}${safeExt}`;
+  const filePath = path.join(__dirname, 'public/uploads', uniqueName);
+
+  fs.writeFile(filePath, buffer, (err) => {
+    if (err) {
+      console.error('Upload write error:', err);
+      return res.status(500).json({ ok: false, error: 'فشل حفظ الملف على السيرفر' });
+    }
+    res.json({ ok: true, url: `/uploads/${uniqueName}`, mediaType });
+  });
+});
 
 const adminRouter = createAdminRouter({
   store, auth, online, io, quizBot, publicUser, roomsSummary, isStaff, rank, RANKS, now, makeMessage
@@ -483,6 +519,11 @@ io.on('connection', (socket) => {
     if (!user) return fail(cb, 'الجلسة منتهية، سجل الدخول من جديد');
     const room = store.state.rooms[roomId] || store.state.rooms.iraq;
 
+    // Rank / Permission barrier for restricted rooms
+    if (room.requiredRank && rank(user) < RANKS.indexOf(room.requiredRank) && !isStaff(user)) {
+      return fail(cb, `هذه الغرفة مخصصة لرتبة ${room.requiredRank} وما فوق.`);
+    }
+
     const prev = online.get(user.id);
     if (prev && prev.roomId && prev.roomId !== room.id) {
       socket.leave(prev.roomId);
@@ -504,6 +545,8 @@ io.on('connection', (socket) => {
           topic: room.topic || '',
           lockPublic: !!room.lockPublic,
           lockPrivate: !!room.lockPrivate,
+          requiredRank: room.requiredRank || 'REGULAR',
+          supervisorId: room.supervisorId || null,
           youtubeId: room.youtubeId || '',
           youtubeTitle: room.youtubeTitle || '',
           youtubeStartedAt: room.youtubeStartedAt || 0,
@@ -524,7 +567,7 @@ io.on('connection', (socket) => {
 
   socket.on('list_rooms', (_p, cb) => { if (typeof cb === 'function') cb({ ok: true, rooms: roomsSummary() }); });
 
-  socket.on('send_message', ({ text } = {}) => {
+  socket.on('send_message', ({ text, mediaType, mediaUrl, audioDuration } = {}) => {
     const user = currentUser();
     if (!user) return;
     const p = online.get(user.id);
@@ -550,8 +593,30 @@ io.on('connection', (socket) => {
     if (user.isMuted) return socket.emit('error_alert', { message: 'أنت مكتوم، انتظر موافقة المشرف' });
     if (room.lockPublic && !isStaff(user)) return socket.emit('error_alert', { message: 'الشات العام مقفل حالياً' });
 
-    const clean = filter.check(text);
-    if (!clean.ok) return socket.emit('error_alert', { message: clean.reason });
+    let cleanText = '';
+    if (text && typeof text === 'string' && text.trim()) {
+      const clean = filter.check(text);
+      if (!clean.ok) return socket.emit('error_alert', { message: clean.reason });
+      cleanText = clean.text;
+    } else if (mediaType === 'image') {
+      cleanText = '📷 صورة';
+    } else if (mediaType === 'audio') {
+      cleanText = '🎤 تسجيل صوتي';
+    } else {
+      return socket.emit('error_alert', { message: 'رسالة فارغة' });
+    }
+
+    // Validate mediaUrl
+    let safeMediaUrl = null;
+    let safeMediaType = null;
+    let safeAudioDuration = null;
+    if (typeof mediaUrl === 'string' && (mediaUrl.startsWith('/uploads/') || mediaUrl.startsWith('https://') || mediaUrl.startsWith('http://'))) {
+      safeMediaUrl = mediaUrl.slice(0, 500);
+      safeMediaType = mediaType === 'audio' ? 'audio' : 'image';
+      if (safeMediaType === 'audio' && typeof audioDuration === 'number') {
+        safeAudioDuration = Math.min(300, Math.max(1, Math.floor(audioDuration)));
+      }
+    }
 
     const last = lastSent.get(user.id);
     if (last && !isStaff(user)) {
@@ -561,22 +626,23 @@ io.on('connection', (socket) => {
         return socket.emit('error_alert', { message: 'تم كتمك تلقائياً بسبب الإغراق' });
       }
       if (now() - last.at < 2000) return socket.emit('error_alert', { message: 'يرجى الانتظار ثانيتين بين كل رسالة' });
-      if (last.text === clean.text) return socket.emit('error_alert', { message: 'لا تكرر نفس الرسالة' });
+      if (last.text === cleanText && !safeMediaUrl) return socket.emit('error_alert', { message: 'لا تكرر نفس الرسالة' });
     }
-    lastSent.set(user.id, { at: now(), text: clean.text });
+    lastSent.set(user.id, { at: now(), text: cleanText });
 
-    const msg = makeMessage(user, room.id, clean.text);
+    const msg = makeMessage(user, room.id, cleanText, {
+      mediaType: safeMediaType,
+      mediaUrl: safeMediaUrl,
+      audioDuration: safeAudioDuration
+    });
     if (user.isGhost) {
-      // Silent shadowban: echo the sender's own message back looking fully delivered
-      // (never stored, never broadcast). The target must not know they are ghosted,
-      // so we send it plain — no isGhost flag — to keep them calm instead of raging.
       return socket.emit('new_message', msg);
     }
     store.pushMessage(room.id, msg);
     io.to(room.id).emit('new_message', msg);
-    quizBot.checkAnswer(room.id, user, clean.text);
+    quizBot.checkAnswer(room.id, user, cleanText);
 
-    const yt = filter.youtubeId(clean.text);
+    const yt = filter.youtubeId(cleanText);
     if (yt) {
       room.youtubeId = yt;
       room.youtubeTitle = 'فيديو بواسطة ' + user.name;
@@ -597,7 +663,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('private_send', ({ toUserId, text } = {}, cb) => {
+  socket.on('private_send', ({ toUserId, text, mediaType, mediaUrl, audioDuration } = {}, cb) => {
     const user = currentUser();
     if (!user) return fail(cb, 'سجل الدخول');
     const target = store.state.users[toUserId];
@@ -605,14 +671,41 @@ io.on('connection', (socket) => {
     const room = store.state.rooms[(online.get(user.id) || {}).roomId];
     if (room && room.lockPrivate && !isStaff(user)) return fail(cb, 'المحادثات الخاصة مقفلة');
     if (user.isMuted) return fail(cb, 'أنت مكتوم');
-    const clean = filter.check(text);
-    if (!clean.ok) return fail(cb, clean.reason);
 
-    const msg = makeMessage(user, 'private', clean.text, { toUserId });
+    let cleanText = '';
+    if (text && typeof text === 'string' && text.trim()) {
+      const clean = filter.check(text);
+      if (!clean.ok) return fail(cb, clean.reason);
+      cleanText = clean.text;
+    } else if (mediaType === 'image') {
+      cleanText = '📷 صورة خاصة';
+    } else if (mediaType === 'audio') {
+      cleanText = '🎤 تسجيل صوتي خاص';
+    } else {
+      return fail(cb, 'رسالة فارغة');
+    }
+
+    let safeMediaUrl = null;
+    let safeMediaType = null;
+    let safeAudioDuration = null;
+    if (typeof mediaUrl === 'string' && (mediaUrl.startsWith('/uploads/') || mediaUrl.startsWith('https://') || mediaUrl.startsWith('http://'))) {
+      safeMediaUrl = mediaUrl.slice(0, 500);
+      safeMediaType = mediaType === 'audio' ? 'audio' : 'image';
+      if (safeMediaType === 'audio' && typeof audioDuration === 'number') {
+        safeAudioDuration = Math.min(300, Math.max(1, Math.floor(audioDuration)));
+      }
+    }
+
+    const msg = makeMessage(user, 'private', cleanText, {
+      toUserId,
+      mediaType: safeMediaType,
+      mediaUrl: safeMediaUrl,
+      audioDuration: safeAudioDuration
+    });
     store.pushPrivate(user.id, toUserId, msg);
     const tp = online.get(toUserId);
     if (tp) io.to(tp.socketId).emit('private_message', msg);
-    else pushToUser(target, `رسالة خاصة من ${user.name}`, clean.text, { type: 'private', fromUserId: user.id });
+    else pushToUser(target, `رسالة خاصة من ${user.name}`, cleanText, { type: 'private', fromUserId: user.id });
     socket.emit('private_message', msg);
     if (typeof cb === 'function') cb({ ok: true, message: msg });
   });

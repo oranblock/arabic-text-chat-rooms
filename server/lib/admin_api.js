@@ -28,10 +28,11 @@ function createAdminRouter({ store, auth, online, io, quizBot, publicUser, rooms
 
   // Admin login endpoint
   router.post('/login', (req, res) => {
-    const { name, password } = req.body || {};
-    if (!name || !password) return res.status(400).json({ ok: false, error: 'يرجى إدخال الاسم وكلمة المرور' });
+    const nameInput = req.body?.name || req.body?.username;
+    const password = req.body?.password;
+    if (!nameInput || !password) return res.status(400).json({ ok: false, error: 'يرجى إدخال الاسم وكلمة المرور' });
 
-    const key = name.trim().toLowerCase();
+    const key = nameInput.trim().toLowerCase();
     const id = store.state.names[key];
     const user = id && store.state.users[id];
 
@@ -256,6 +257,46 @@ function createAdminRouter({ store, auth, online, io, quizBot, publicUser, rooms
     res.json({ ok: true, room });
   });
 
+  // Create new chat room with role/rank requirements
+  router.post('/rooms/create', requireStaff, (req, res) => {
+    const { id, title, description, topic, requiredRank, supervisorId } = req.body || {};
+    if (!title || !title.trim()) return res.status(400).json({ ok: false, error: 'اسم الغرفة مطلوب' });
+    const roomId = (id && id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '')) || ('room_' + Date.now().toString(36));
+    if (store.state.rooms[roomId]) return res.status(400).json({ ok: false, error: 'معرف الغرفة موجود مسبقاً' });
+
+    const newRoom = {
+      id: roomId,
+      title: title.trim().slice(0, 50),
+      description: (description || '').trim().slice(0, 150),
+      topic: (topic || '').trim().slice(0, 100),
+      lockPublic: false,
+      lockPrivate: false,
+      requiredRank: requiredRank || 'REGULAR',
+      supervisorId: supervisorId || null,
+      createdAt: now()
+    };
+    store.state.rooms[roomId] = newRoom;
+    store.state.messages[roomId] = [];
+    store.save();
+
+    io.emit('rooms', { rooms: roomsSummary() });
+    res.json({ ok: true, room: newRoom });
+  });
+
+  // Delete chat room
+  router.post('/rooms/delete', requireStaff, (req, res) => {
+    const { roomId } = req.body || {};
+    if (!roomId || !store.state.rooms[roomId]) return res.status(404).json({ ok: false, error: 'الغرفة غير موجودة' });
+    if (['iraq'].includes(roomId)) return res.status(400).json({ ok: false, error: 'لا يمكن حذف الغرفة العامة الرئيسية' });
+
+    delete store.state.rooms[roomId];
+    delete store.state.messages[roomId];
+    store.save();
+
+    io.emit('rooms', { rooms: roomsSummary() });
+    res.json({ ok: true });
+  });
+
   // Broadcast
   router.post('/broadcast', requireStaff, (req, res) => {
     const { text } = req.body || {};
@@ -374,6 +415,41 @@ function handleAdminCommand(socket, user, room, text, ctx) {
     socket.emit('system_message', { roomId: room.id, text: msg, at: now() });
     socket.emit('error_alert', { message: msg });
   };
+
+  // Room management commands
+  if (cmd === 'createroom' || cmd === 'انشاء_غرفة' || cmd === 'انشاء_روم') {
+    if (!isStaff(user)) { reply('⚠️ إنشاء الغرف مخصص للإدارة والمشرفين'); return true; }
+    const roomId = (parts[1] || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    const title = parts.slice(2).join(' ').trim();
+    if (!roomId || !title) {
+      reply('⚠️ الاستخدام: /createroom <معرف_الغرفة> <اسم الغرفة>\nمثال: /createroom najaf ديوانية النجف الأشرف 🕌');
+      return true;
+    }
+    if (store.state.rooms[roomId]) { reply('⚠️ معرف الغرفة موجود مسبقاً'); return true; }
+    const newRoom = {
+      id: roomId, title: title.slice(0, 50), description: 'غرفة جديدة', topic: '',
+      lockPublic: false, lockPrivate: false, requiredRank: 'REGULAR', supervisorId: user.id, createdAt: now()
+    };
+    store.state.rooms[roomId] = newRoom;
+    store.state.messages[roomId] = [];
+    store.save();
+    io.emit('rooms', { rooms: roomsSummary() });
+    reply(`✅ تم إنشاء الغرفة بنجاح: [${newRoom.title}] (معرف: ${roomId})`);
+    return true;
+  }
+
+  if (cmd === 'delroom' || cmd === 'حذف_غرفة' || cmd === 'حذف_روم') {
+    if (!isStaff(user)) { reply('⚠️ حذف الغرف مخصص للإدارة'); return true; }
+    const targetRoomId = (parts[1] || '').trim().toLowerCase();
+    if (!targetRoomId || !store.state.rooms[targetRoomId]) { reply('⚠️ معرف الغرفة غير موجود'); return true; }
+    if (targetRoomId === 'iraq') { reply('⚠️ لا يمكن حذف ديوانية العراق الرئيسية'); return true; }
+    delete store.state.rooms[targetRoomId];
+    delete store.state.messages[targetRoomId];
+    store.save();
+    io.emit('rooms', { rooms: roomsSummary() });
+    reply(`✅ تم حذف الغرفة [${targetRoomId}] بنجاح`);
+    return true;
+  }
 
   // Bot commands
   if (cmd === 'bots' || cmd === 'البوتات' || cmd === 'قائمة_البوتات') {

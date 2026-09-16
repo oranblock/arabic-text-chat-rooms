@@ -17,11 +17,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.automirrored.filled.Send as SendIcon
 import androidx.compose.material.icons.filled.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.Arrangement
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import com.ali.textchat.util.AudioRecorderHelper
+import kotlinx.coroutines.Dispatchers
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.automirrored.filled.Chat
@@ -98,6 +104,95 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
     var showPassword by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showScores by remember { mutableStateOf(false) }
+
+    val recorderHelper = remember { AudioRecorderHelper(context) }
+    var isRecordingVoice by remember { mutableStateOf(false) }
+    var recordingSeconds by remember { mutableIntStateOf(0) }
+    var isUploadingMedia by remember { mutableStateOf(false) }
+    var uploadStatusText by remember { mutableStateOf("") }
+
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            if (recorderHelper.start()) {
+                isRecordingVoice = true
+                recordingSeconds = 0
+            } else {
+                android.widget.Toast.makeText(context, "فشل بدء التسجيل", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            android.widget.Toast.makeText(context, "إذن الميكروفون مطلوب لتسجيل الصوت", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            isUploadingMedia = true
+            uploadStatusText = "جاري رفع الصورة..."
+            scope.launch(Dispatchers.IO) {
+                try {
+                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    if (bytes != null && bytes.isNotEmpty()) {
+                        val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                        socket.uploadMedia(base64, "image", "upload.jpg") { ok, url ->
+                            isUploadingMedia = false
+                            if (ok && url != null) {
+                                socket.sendMessage("", mediaType = "image", mediaUrl = url)
+                            } else {
+                                scope.launch(Dispatchers.Main) {
+                                    android.widget.Toast.makeText(context, "فشل رفع الصورة", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    } else {
+                        isUploadingMedia = false
+                    }
+                } catch (e: Exception) {
+                    isUploadingMedia = false
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(isRecordingVoice) {
+        if (isRecordingVoice) {
+            recordingSeconds = 0
+            while (isRecordingVoice) {
+                kotlinx.coroutines.delay(1000)
+                recordingSeconds++
+                if (recordingSeconds >= 120) {
+                    val (file, duration) = recorderHelper.stop()
+                    isRecordingVoice = false
+                    if (file != null && file.exists() && duration > 0) {
+                        isUploadingMedia = true
+                        uploadStatusText = "جاري رفع التسجيل الصوتي..."
+                        scope.launch(Dispatchers.IO) {
+                            val bytes = file.readBytes()
+                            val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                            socket.uploadMedia(base64, "audio", file.name) { ok, url ->
+                                isUploadingMedia = false
+                                file.delete()
+                                if (ok && url != null) {
+                                    socket.sendMessage("", mediaType = "audio", mediaUrl = url, audioDuration = duration)
+                                }
+                            }
+                        }
+                    }
+                    break
+                }
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            recorderHelper.cancel()
+        }
+    }
 
     LaunchedEffect(ytId) { if (!ytId.isNullOrBlank()) ytVisible = true }
     val listState = rememberLazyListState()
@@ -221,40 +316,125 @@ fun ChatRoomScreen(socket: ChatSocket, onLogout: () -> Unit) {
             }
             }
 
+            if (isUploadingMedia) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().background(Color(0xFFFEF3C7)).padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = BcAccent)
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (uploadStatusText.isNotBlank()) uploadStatusText else "جاري رفع الملف...", color = Color(0xFF92400E), fontSize = 12.sp)
+                }
+            }
+
             Box(Modifier.fillMaxWidth().height(2.dp).background(BcAccent))
             if (showEmoji) EmojiAndEmoticonPicker(onEmoji = { input += it }, onEmoticon = { input += " :$it: " })
 
-            Row(
-                modifier = Modifier.fillMaxWidth().background(Color.White).navigationBarsPadding().imePadding()
-                    .padding(horizontal = 6.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Round magenta send (paper plane), like iqchat.top
-                Box(
-                    modifier = Modifier.size(44.dp).clip(CircleShape).background(BcAccent).clickable {
-                        if (input.isNotBlank()) { socket.sendMessage(input.trim()); input = "" }
-                    },
-                    contentAlignment = Alignment.Center
-                ) { Icon(Icons.AutoMirrored.Filled.Send, "إرسال", tint = Color.White, modifier = Modifier.size(20.dp)) }
-                Spacer(Modifier.width(6.dp))
-                Box(Modifier.size(40.dp).clip(CircleShape).clickable { showEmoji = !showEmoji }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.SentimentSatisfied, "إيموجي", tint = BcAccent, modifier = Modifier.size(26.dp))
-                }
-                Box(Modifier.size(40.dp).clip(CircleShape).clickable { }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Add, "ملف", tint = BcAccent, modifier = Modifier.size(26.dp))
-                }
-                Spacer(Modifier.width(6.dp))
-                Box(
-                    modifier = Modifier.weight(1f).height(40.dp)
-                        .drawBehind {
-                            drawLine(BcAccent, androidx.compose.ui.geometry.Offset(0f, size.height - 2f),
-                                androidx.compose.ui.geometry.Offset(size.width, size.height - 2f), strokeWidth = 3f)
-                        }.padding(horizontal = 6.dp),
-                    contentAlignment = Alignment.CenterStart
+            if (isRecordingVoice) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().background(Color(0xFFFFF1F2)).navigationBarsPadding().imePadding()
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (input.isEmpty()) Text("اكتب رسالتك...", color = Color(0xFF9E9E9E), fontSize = 14.sp)
-                    BasicTextField(input, { input = it }, singleLine = true,
-                        textStyle = TextStyle(color = Color(0xFF181818), fontSize = 14.sp), modifier = Modifier.fillMaxWidth())
+                    IconButton(
+                        onClick = {
+                            recorderHelper.cancel()
+                            isRecordingVoice = false
+                        },
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(Icons.Default.Delete, "إلغاء التسجيل", tint = Color(0xFFE11D48), modifier = Modifier.size(22.dp))
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    val mins = recordingSeconds / 60
+                    val secs = recordingSeconds % 60
+                    val timeStr = String.format("%02d:%02d", mins, secs)
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(Modifier.size(10.dp).clip(CircleShape).background(Color.Red))
+                        Spacer(Modifier.width(8.dp))
+                        Text("تسجيل صوتي: $timeStr", color = Color(0xFFBE123C), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                    Box(
+                        modifier = Modifier.size(44.dp).clip(CircleShape).background(BcAccent).clickable {
+                            val (file, duration) = recorderHelper.stop()
+                            isRecordingVoice = false
+                            if (file != null && file.exists() && duration > 0) {
+                                isUploadingMedia = true
+                                uploadStatusText = "جاري إرسال التسجيل الصوتي..."
+                                scope.launch(Dispatchers.IO) {
+                                    val bytes = file.readBytes()
+                                    val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                                    socket.uploadMedia(base64, "audio", file.name) { ok, url ->
+                                        isUploadingMedia = false
+                                        file.delete()
+                                        if (ok && url != null) {
+                                            socket.sendMessage("", mediaType = "audio", mediaUrl = url, audioDuration = duration)
+                                        } else {
+                                            scope.launch(Dispatchers.Main) {
+                                                android.widget.Toast.makeText(context, "فشل إرسال التسجيل الصوتي", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Send, "إرسال الصوت", tint = Color.White, modifier = Modifier.size(20.dp))
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth().background(Color.White).navigationBarsPadding().imePadding()
+                        .padding(horizontal = 6.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier.size(44.dp).clip(CircleShape).background(BcAccent).clickable {
+                            if (input.isNotBlank()) { socket.sendMessage(input.trim()); input = "" }
+                        },
+                        contentAlignment = Alignment.Center
+                    ) { Icon(Icons.AutoMirrored.Filled.Send, "إرسال", tint = Color.White, modifier = Modifier.size(20.dp)) }
+                    Spacer(Modifier.width(4.dp))
+                    Box(Modifier.size(38.dp).clip(CircleShape).clickable { showEmoji = !showEmoji }, contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.SentimentSatisfied, "إيموجي", tint = BcAccent, modifier = Modifier.size(24.dp))
+                    }
+                    Box(Modifier.size(38.dp).clip(CircleShape).clickable {
+                        imagePickerLauncher.launch("image/*")
+                    }, contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.PhotoCamera, "إرسال صورة", tint = BcAccent, modifier = Modifier.size(24.dp))
+                    }
+                    Box(Modifier.size(38.dp).clip(CircleShape).clickable {
+                        val hasPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                        if (hasPermission) {
+                            if (recorderHelper.start()) {
+                                isRecordingVoice = true
+                                recordingSeconds = 0
+                            } else {
+                                android.widget.Toast.makeText(context, "تعذر تشغيل الميكروفون", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    }, contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Mic, "تسجيل صوتي", tint = BcAccent, modifier = Modifier.size(24.dp))
+                    }
+                    Spacer(Modifier.width(4.dp))
+                    Box(
+                        modifier = Modifier.weight(1f).height(40.dp)
+                            .drawBehind {
+                                drawLine(BcAccent, androidx.compose.ui.geometry.Offset(0f, size.height - 2f),
+                                    androidx.compose.ui.geometry.Offset(size.width, size.height - 2f), strokeWidth = 3f)
+                            }.padding(horizontal = 6.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        if (input.isEmpty()) Text("اكتب رسالتك...", color = Color(0xFF9E9E9E), fontSize = 14.sp)
+                        BasicTextField(input, { input = it }, singleLine = true,
+                            textStyle = TextStyle(color = Color(0xFF181818), fontSize = 14.sp), modifier = Modifier.fillMaxWidth())
+                    }
                 }
             }
         }
@@ -617,17 +797,33 @@ private fun RoomsDialog(rooms: List<ChatRoom>, currentId: String?, onPick: (Stri
             Text("قائمة الرومات", color = BcAccent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(10.dp))
             rooms.forEach { r ->
+                val rankLabel = when (r.requiredRank) {
+                    "OWNER" -> "👑 إدارة"
+                    "MODERATOR" -> "🛡️ مراقبين"
+                    "VIP" -> "⭐ مميزين"
+                    "MEMBER" -> "✅ مفعلين"
+                    else -> null
+                }
                 Row(
                     Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(10.dp))
                         .background(if (r.id == currentId) BcUserItemEnd else BcInputFill)
                         .clickable { onPick(r.id) }.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Home, null, tint = BcAccent, modifier = Modifier.size(20.dp))
+                    Icon(if (r.isLocked) Icons.Default.Lock else Icons.Default.Home, null, tint = BcAccent, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(r.title, color = Color(0xFF333333), fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Text(r.description, color = Color(0xFF888888), fontSize = 11.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(r.title, color = Color(0xFF333333), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            if (rankLabel != null) {
+                                Spacer(Modifier.width(6.dp))
+                                Text(rankLabel, fontSize = 10.sp, color = Color(0xFFD97706),
+                                    modifier = Modifier.background(Color(0xFFFEF3C7), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp, vertical = 1.dp))
+                            }
+                        }
+                        if (r.description.isNotBlank()) {
+                            Text(r.description, color = Color(0xFF888888), fontSize = 11.sp)
+                        }
                     }
                     Text("${r.onlineCount}", color = Color.White, fontSize = 11.sp,
                         modifier = Modifier.background(BcHeaderEnd, RoundedCornerShape(10.dp)).padding(horizontal = 8.dp, vertical = 2.dp))
@@ -1146,6 +1342,36 @@ private fun AdminPanelDialog(
 private fun PrivateChatDialog(socket: ChatSocket, target: ChatUser, onDismiss: () -> Unit) {
     val thread by socket.privates.collectAsState()
     var text by remember { mutableStateOf("") }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isUploading by remember { mutableStateOf(false) }
+
+    val privImagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            isUploading = true
+            scope.launch(Dispatchers.IO) {
+                try {
+                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    if (bytes != null && bytes.isNotEmpty()) {
+                        val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                        socket.uploadMedia(base64, "image", "private.jpg") { ok, url ->
+                            isUploading = false
+                            if (ok && url != null) {
+                                socket.sendPrivate(target.id, "", mediaType = "image", mediaUrl = url)
+                            }
+                        }
+                    } else {
+                        isUploading = false
+                    }
+                } catch (e: Exception) {
+                    isUploading = false
+                }
+            }
+        }
+    }
+
     Dialog(onDismiss) {
         Column(Modifier.clip(RoundedCornerShape(14.dp)).background(Color.White).fillMaxWidth(0.92f).heightIn(max = 480.dp)) {
             Row(Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(BcHeaderStart, BcHeaderEnd))).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1156,10 +1382,44 @@ private fun PrivateChatDialog(socket: ChatSocket, target: ChatUser, onDismiss: (
                 Icon(Icons.Default.PersonAdd, "إضافة صديق", tint = Color.White,
                     modifier = Modifier.size(20.dp).clickable { socket.sendRequest(target.id) })
             }
+            if (isUploading) {
+                LinearProgressIndicator(Modifier.fillMaxWidth(), color = BcAccent)
+            }
             LazyColumn(Modifier.weight(1f).fillMaxWidth().background(BcChatBackground).padding(8.dp)) {
-                items(thread) { m -> Text("${m.senderName}: ${m.text}", color = Color(0xFF333333), fontSize = 13.sp, modifier = Modifier.padding(vertical = 3.dp)) }
+                items(thread) { m ->
+                    val isOther = m.senderId == target.id
+                    Column(
+                        Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                        horizontalAlignment = if (isOther) Alignment.Start else Alignment.End
+                    ) {
+                        Box(
+                            Modifier.clip(RoundedCornerShape(8.dp))
+                                .background(if (isOther) Color(0xFFE2E8F0) else Color(0xFFFCE7F3))
+                                .padding(8.dp)
+                        ) {
+                            Column {
+                                if (m.mediaType == "image" && !m.mediaUrl.isNullOrBlank()) {
+                                    val fullUrl = if (m.mediaUrl.startsWith("http")) m.mediaUrl else "${com.ali.textchat.data.AppConfig.SERVER_URL}${m.mediaUrl}"
+                                    coil.compose.AsyncImage(
+                                        model = fullUrl,
+                                        contentDescription = "صورة خاصة",
+                                        modifier = Modifier.sizeIn(maxWidth = 180.dp, maxHeight = 180.dp).clip(RoundedCornerShape(6.dp))
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                }
+                                if (m.text.isNotBlank() && m.text != "📷 صورة" && m.text != "📷 صورة خاصة") {
+                                    Text(m.text, color = Color(0xFF1E293B), fontSize = 13.sp)
+                                }
+                            }
+                        }
+                    }
+                }
             }
             Row(Modifier.fillMaxWidth().background(Color.White).padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(36.dp).clip(CircleShape).clickable { privImagePicker.launch("image/*") }, contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.PhotoCamera, "إرسال صورة", tint = BcAccent, modifier = Modifier.size(22.dp))
+                }
+                Spacer(Modifier.width(4.dp))
                 Box(Modifier.weight(1f).height(40.dp).background(BcInputFill, RoundedCornerShape(3.dp)).padding(horizontal = 10.dp), contentAlignment = Alignment.CenterStart) {
                     if (text.isEmpty()) Text("رسالة خاصة...", color = Color(0xFF9E9E9E), fontSize = 13.sp)
                     BasicTextField(text, { text = it }, singleLine = true, textStyle = TextStyle(color = Color(0xFF181818), fontSize = 14.sp), modifier = Modifier.fillMaxWidth())
