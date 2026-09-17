@@ -24,6 +24,19 @@ const rpc = (s, e, p) => new Promise(r => s.timeout(4000).emit(e, p, (err, res) 
   // Seed synchronized YouTube player
   await rpc(owner, 'sync_youtube', { videoId: 'jfKfPfyJRdk', videoTitle: 'موسيقى هادئة - ديوانية العراق 🎵' });
 
+  // Seed room baghdad with Iraqi messages
+  await rpc(owner, 'join_room', { token: ali.token, roomId: 'baghdad' });
+  await rpc(owner, 'send_message', { text: 'أهلاً بكم في روم بغداد - سوالف ولمة أهل بغداد والحبايب 🇮🇶❤️' });
+
+  const sBaghdad = connect('ci-baghdad-user');
+  sockets.push(sBaghdad);
+  const rB = await rpc(sBaghdad, 'register', { name: 'عمر البغدادي', password: 'demo123' });
+  if (rB.ok) {
+    await rpc(sBaghdad, 'join_room', { token: rB.token, roomId: 'baghdad' });
+    await rpc(sBaghdad, 'send_message', { text: 'منورين يا أهل بغداد الحبيبة.. شكو ماكو اليوم؟ 🌸✨' });
+  }
+  await rpc(owner, 'join_room', { token: ali.token, roomId: 'iraq' });
+
   const members = [
     ['حسوني', 'شلونكم شباب شكو ماكو 😎', 'VIP_DIAMOND', '#FF1493'],
     ['المشرف كرار', 'أهلاً بالجميع، يرجى الالتزام بالقوانين 🛡️', 'MODERATOR', null],

@@ -41,6 +41,31 @@ home() { adb shell input keyevent KEYCODE_HOME; sleep 1; }
 back() { adb shell input keyevent KEYCODE_BACK; sleep 1; }
 tap()  { adb shell input tap "$1" "$2"; sleep 1; }
 
+tap_by_text() {  # tap_by_text <query_text> [fallback_x fallback_y]
+  local txt="$1"
+  local f_x="${2:-}"
+  local f_y="${3:-}"
+  local coords=""
+
+  adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
+  adb pull /sdcard/ui.xml /tmp/ui.xml >/dev/null 2>&1 || true
+
+  if [ -s /tmp/ui.xml ]; then
+    coords=$(python3 .github/ci/find_coords.py /tmp/ui.xml "$txt" 2>/dev/null || true)
+  fi
+
+  if [ -n "$coords" ]; then
+    echo "tap_by_text '$txt' -> detected: $coords"
+    tap $coords
+  elif [ -n "$f_x" ] && [ -n "$f_y" ]; then
+    echo "tap_by_text '$txt' -> fallback: ($f_x, $f_y)"
+    tap "$f_x" "$f_y"
+  else
+    echo "tap_by_text '$txt' -> not found, no fallback"
+  fi
+}
+
+
 assert_package() {  # fail loud if the app is not installed (applicationIdSuffix trap)
   echo "installed 3rd-party packages:"
   adb shell pm list packages -3

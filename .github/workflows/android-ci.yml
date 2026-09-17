@@ -29,7 +29,7 @@ on:
         default: smoke
   push:
     branches: [main]
-    paths: ["android_app/**", ".github/**"]
+    paths: ["android_app/**", ".github/**", "server/**"]
 
 concurrency:
   group: android-ci-${{ github.ref }}-${{ github.event.inputs.api_level }}
