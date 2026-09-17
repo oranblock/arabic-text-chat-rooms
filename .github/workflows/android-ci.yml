@@ -62,19 +62,10 @@ jobs:
         with:
           name: app-debug
           path: apk
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      - name: Start ephemeral chat server + seed demo data
-        working-directory: server
+      - name: Verify Live VPS Server connectivity
         run: |
-          set -e
-          npm ci --omit=dev || npm install --omit=dev
-          PORT=3001 DB_FILE=data/ci.json nohup node server.js > "$GITHUB_WORKSPACE/server.log" 2>&1 &
-          for i in $(seq 1 20); do
-            curl -sf http://127.0.0.1:3001/health && break || sleep 1
-          done
-          node seed_ci.js || echo "seed skipped"
+          echo "Testing connectivity to live VPS at http://192.236.249.134:3000..."
+          curl -sf http://192.236.249.134:3000/health || (echo "VPS unreachable" && exit 1)
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
@@ -97,9 +88,9 @@ jobs:
           disable-animations: true
           # ONE line on purpose — see header. The bash lives in the file.
           script: bash .github/ci/flow.sh
-      - name: Server log tail
+      - name: VPS server status
         if: always()
-        run: tail -n 40 server.log || true
+        run: curl -s http://192.236.249.134:3000/health || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:

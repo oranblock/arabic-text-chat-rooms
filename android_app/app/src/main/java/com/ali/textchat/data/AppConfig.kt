@@ -9,16 +9,9 @@ import android.os.Build
  */
 object AppConfig {
     const val DEFAULT_SERVER_URL = "http://192.236.249.134:3000"
-    const val EMULATOR_SERVER_URL = "http://localhost:3001"
+    const val EMULATOR_SERVER_URL = "http://192.236.249.134:3000"
 
-    fun defaultUrl(): String {
-        val isEmulator = Build.FINGERPRINT.startsWith("generic")
-                || Build.MODEL.contains("google_sdk")
-                || Build.MODEL.contains("Emulator")
-                || Build.HARDWARE.contains("goldfish")
-                || Build.HARDWARE.contains("ranchu")
-        return if (isEmulator) EMULATOR_SERVER_URL else DEFAULT_SERVER_URL
-    }
+    fun defaultUrl(): String = DEFAULT_SERVER_URL
 
     val SERVER_URL: String get() = defaultUrl()
 }

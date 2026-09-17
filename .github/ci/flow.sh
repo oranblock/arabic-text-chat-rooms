@@ -10,9 +10,9 @@ FLOW="${FLOW:-smoke}"
 APK_DIR="${APK_DIR:-apk}"
 rc=0
 
-# The app's SERVER_URL is http://localhost:3001. On the emulator that loops back
-# to the emulator itself, so forward it to the ephemeral server on the runner.
-adb reverse tcp:3001 tcp:3001 || echo "adb reverse failed"
+# Target live VPS server directly at http://192.236.249.134:3000
+curl -sf http://192.236.249.134:3000/health || echo "Warning: VPS /health not responding"
+
 
 # download-artifact leaves the .apk inside a directory — match files only.
 APK="$(find "$APK_DIR" -type f -name '*.apk' | head -n1)"
@@ -85,12 +85,12 @@ case "$FLOW" in
     sleep 2
     shot "08-youtube-player-initial"
 
-    # Update YouTube video via admin room-control API to P82XPloDtMc
-    send_step "trigger youtube sync to P82XPloDtMc"
-    curl -sf -X POST http://127.0.0.1:3001/api/admin/login -H "Content-Type: application/json" -d '{"name":"علي","password":"demo123"}' > /tmp/admin_auth.json || true
+    # Update YouTube video via admin room-control API to P82XPloDtMc on VPS
+    send_step "trigger youtube sync to P82XPloDtMc on VPS"
+    curl -sf -X POST http://192.236.249.134:3000/api/admin/login -H "Content-Type: application/json" -d '{"name":"علي","password":"123456"}' > /tmp/admin_auth.json || true
     ADMIN_TOK="$(grep -o '"token":"[^"]*' /tmp/admin_auth.json | cut -d'"' -f4)"
     if [ -n "$ADMIN_TOK" ]; then
-      curl -sf -X POST http://127.0.0.1:3001/api/admin/room-control -H "Authorization: Bearer $ADMIN_TOK" -H "Content-Type: application/json" -d '{"roomId":"baghdad","youtubeId":"P82XPloDtMc"}' || true
+      curl -sf -X POST http://192.236.249.134:3000/api/admin/room-control -H "Authorization: Bearer $ADMIN_TOK" -H "Content-Type: application/json" -d '{"roomId":"baghdad","youtubeId":"P82XPloDtMc"}' || true
     fi
     sleep 3
     shot "09-youtube-player-updated"
