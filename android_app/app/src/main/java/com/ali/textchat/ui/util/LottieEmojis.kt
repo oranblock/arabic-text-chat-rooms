@@ -78,6 +78,7 @@ fun LottieEmojiView(
     LottieAnimation(
         composition = composition,
         iterations = LottieConstants.IterateForever,
+        renderMode = com.airbnb.lottie.RenderMode.SOFTWARE,
         modifier = mod
     )
 }
