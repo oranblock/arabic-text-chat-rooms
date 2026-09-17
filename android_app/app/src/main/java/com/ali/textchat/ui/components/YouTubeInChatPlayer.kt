@@ -167,6 +167,10 @@ fun YouTubeInChatPlayer(
                             isFocusable = true
                             isFocusableInTouchMode = true
                             setBackgroundColor(android.graphics.Color.BLACK)
+                            val isEmu = android.os.Build.FINGERPRINT.startsWith("generic") || android.os.Build.HARDWARE.contains("goldfish") || android.os.Build.HARDWARE.contains("ranchu")
+                            if (isEmu) {
+                                setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
+                            }
                             settings.apply {
                                 javaScriptEnabled = true
                                 domStorageEnabled = true

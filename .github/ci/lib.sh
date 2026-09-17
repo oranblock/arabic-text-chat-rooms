@@ -25,8 +25,13 @@ shot() {  # shot <label>
   STEP=$((STEP + 1))
   local f
   f="$ART/$(printf '%02d' "$STEP")-$1.png"
-  adb exec-out screencap -p > "$f" 2>/dev/null
-  echo "screenshot $f"
+  adb exec-out screencap -p > "$f" 2>/dev/null || true
+  if [ ! -s "$f" ]; then
+    echo "Warning: screenshot $f was empty, retrying screencap..."
+    sleep 2
+    adb exec-out screencap -p > "$f" 2>/dev/null || true
+  fi
+  echo "screenshot $f ($(wc -c < "$f" 2>/dev/null || echo 0) bytes)"
   _tg "🧪 step $STEP: $1" "$f"
 }
 

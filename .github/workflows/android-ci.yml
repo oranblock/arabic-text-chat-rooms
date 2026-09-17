@@ -86,6 +86,7 @@ jobs:
           arch: x86_64
           profile: pixel_5
           disable-animations: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           # ONE line on purpose — see header. The bash lives in the file.
           script: bash .github/ci/flow.sh
       - name: VPS server status
